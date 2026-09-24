@@ -1,0 +1,140 @@
+{
+  "workflow_id": "template-audit-20260923",
+  "question_count": 0,
+  "phase": "synthese_livree",
+  "decisions": [
+    "Tache = audit read-only : pas d'artisan d'implementation, pas de boucle REVIEW_CHANGES.",
+    "Fan-out sur 4 agents lecture seule en parallele (reviewer BASELINE, reviewer DIAGNOSE, 2x artisan-light RECONNAISSANCE).",
+    "testeur dispatche pour preuve executable (build + test), pas pour valider une implementation.",
+    "Perimetre exclut .claude/** et CLAUDE.md (outillage local non versionne)."
+  ],
+  "open_questions": [],
+  "tasks": [
+    {
+      "task_key": "baseline",
+      "objectif": "Etat git avant toute ecriture",
+      "revision": 1,
+      "etat": "done",
+      "read_set": [
+        "."
+      ],
+      "write_set": [],
+      "validation_commands": [
+        "git status --porcelain",
+        "git diff --stat"
+      ],
+      "resultat": "HEAD 9a79ef5, working tree propre. Seuls .claude/ et CLAUDE.md non suivis (hors perimetre). Aucun travail utilisateur a preserver."
+    },
+    {
+      "task_key": "diagnose-security",
+      "objectif": "Audit securite + correction du code C#",
+      "revision": 1,
+      "etat": "done",
+      "read_set": [
+        "Combat.*/**"
+      ],
+      "write_set": [],
+      "criteres": [
+        "findings ancres fichier:ligne",
+        "severite + impact + effort"
+      ],
+      "resultat": "7 constats (C1..C7), 0 CRITIQUE. HAUTE: C1 publication RabbitMQ avant SaveChanges (dual-write, message faux si le commit echoue) CreatePlayerCommandHandler.cs:23-27 + CommandTransactionBehavior.cs:18-23 ; C2 RabbitMqMessagePublisher singleton mais ouvre connexion+canal a chaque message RabbitMqMessagePublisher.cs:18-28. MOYENNE: C3 aucune correlation propagee, CorrelationId=MessageId, pas d'OpenTelemetry (contredit ADR-GLOB-009 SHALL) ; C4 /health/live et /health/ready identiques, aucun check de dependance (contredit ADR-0030) ; C5 IgnoreLoggingAttribute jamais pose et aucun log {@x} => masquage PII inerte. BASSE: C6 pas de regle croisee Health<=MaxHealth ; C7 regle FluentValidation Id morte. SAIN: pas d'auth locale = conforme ADR-GLOB-004, grpc loopback verifie, middleware ne fuit pas de stack trace en prod, pas de SQL brut, pas de captive dependency, CancellationToken propage partout, grpc passe bien par le pipeline MediatR."
+    },
+    {
+      "task_key": "recon-archi",
+      "objectif": "Conformite Clean Archi / CQRS, derive ADR vs code, couverture de tests",
+      "revision": 1,
+      "etat": "done",
+      "read_set": [
+        "Combat.*/**",
+        "docs/**"
+      ],
+      "write_set": [],
+      "resultat": "13 constats (R1..R13). CRITIQUE: R3 aucune migration EF committee (contredit ADR-0036 + README), R2 dual-write (corrobore C1). HAUTE: R4 health checks (corrobore C4), R5 rabbitmq (corrobore C2), R10 checklist de renommage incomplete, R12 observabilite (corrobore C3). MOYENNE: R1 Application couplee au Protobuf, R6 pas de consommateur, R8 IClock contourne, R11 pas de retry/circuit breaker grpc, R13 6 fichiers de tests seulement. BASSE: R7 dossier Exceptions vide, R9 code mort. Tableau ADR: 0011/0030/0036 contredits, 0025 et GLOB-009 non implementes, GLOB-002 et GLOB-006 partiels."
+    },
+    {
+      "task_key": "recon-cicd",
+      "objectif": "CI/CD, Docker, compose, release-please, husky, supply chain, docs",
+      "revision": 1,
+      "etat": "done",
+      "read_set": [
+        ".github/**",
+        ".husky/**",
+        "Dockerfile",
+        "compose.yaml",
+        "*.json",
+        "docs/**",
+        "README.md"
+      ],
+      "write_set": [],
+      "resultat": "12 constats (F1..F12). HAUTE: F1 exfil SONAR_TOKEN via PR de fork (MSBuild Exec dans csproj, zizmor aveugle), F2 dependabot sans ecosysteme docker. MOYENNE: F3 Trivy borgne (pas de restore, pas de lock file, exit-code 0), F4 pas de Central Package Management, F5 pas de Directory.Build.props ni analyseurs, F6 back-merge echoue en silence sur conflit, F7 BOT_TOKEN hors scope des blocs permissions, F9 images docker en tags flottants. BASSE: F8 secrets clairs compose.yaml, F10 .dockerignore sans .git, F11 README Contracts desynchro 0.1.1 vs 2.0.0, F12 pas de CONTRIBUTING.md. SAIN: actions pinnees par SHA, persist-credentials false, aucun filtre paths sur les checks requis, permissions minimales, aucun continue-on-error, Dockerfile multi-stage non-root, grpc loopback en compose, ADR denses."
+    },
+    {
+      "task_key": "proof-build",
+      "objectif": "Preuve executable : build + tests du template",
+      "revision": 1,
+      "etat": "done",
+      "read_set": [
+        "."
+      ],
+      "write_set": [],
+      "validation_commands": [
+        "dotnet build Combat.Presentation.slnx",
+        "dotnet test --solution Combat.Presentation.slnx"
+      ],
+      "resultat": "TEST_PASS. SDK 10.0.401 satisfait global.json 10.0.300 rollForward. tool restore OK (husky, dotnet-coverage, dotnet-sonarscanner, dotnet-ef). restore OK 6 projets. build: 0 warning 0 erreur en 10.2s. test: 21/21 passes, 0 echec, 0 ignore, 2.55s. dotnet format --verify-no-changes: conforme. dotnet list package --vulnerable --include-transitive: aucun sur les 6 projets. --deprecated: aucun. Arbre inchange hors bin/obj. NOTE ORCHESTRATEUR: 21 tests pour 6 projets = couverture faible, a croiser avec recon-archi."
+    }
+  ],
+  "events": [
+    {
+      "ts": "2026-09-23",
+      "event": "workflow_created",
+      "note": "Grill leger: 0 question, tache claire (audit read-only)."
+    },
+    {
+      "ts": "2026-09-23",
+      "event": "baseline_done",
+      "note": "Arbre propre, audit peut partir d'un etat sain."
+    },
+    {
+      "ts": "2026-09-23",
+      "event": "fanout_dispatched",
+      "note": "4 agents lecture seule: diagnose-security, recon-archi, recon-cicd, proof-build."
+    },
+    {
+      "ts": "2026-09-23",
+      "event": "recon_cicd_done",
+      "note": "12 constats CI/CD, supply chain, docker, DX."
+    },
+    {
+      "ts": "2026-09-23",
+      "event": "proof_build_done",
+      "note": "TEST_PASS. Sante executable confirmee. Le volume de tests (21) reste a qualifier par recon-archi."
+    },
+    {
+      "ts": "2026-09-23",
+      "event": "diagnose_done",
+      "note": "7 constats securite/correction."
+    },
+    {
+      "ts": "2026-09-23",
+      "event": "conflit_tranche",
+      "note": "CONFLIT .dockerignore entre reviewer (juge SAIN, .git absent du contexte) et recon-cicd F10 (juge .git embarque). Verification orchestrateur: .dockerignore n'a AUCUNE entree .git et Dockerfile:14 fait COPY . . => recon-cicd a raison, le reviewer s'est trompe. ATTENUATION: multi-stage, le runtime ne fait que COPY --from=build /app/publish, donc .git ne part PAS dans l'image finale. Severite BASSE confirmee. RISQUE ANNEXE a verifier: le Web SDK globe appsettings*.json en Content, donc un appsettings.Local.json de poste dev (ignore par git, non exclu par .dockerignore) pourrait atterrir dans /app/publish et donc dans l'image finale."
+    },
+    {
+      "ts": "2026-09-23",
+      "event": "recon_archi_done",
+      "note": "13 constats archi/ADR/tests."
+    },
+    {
+      "ts": "2026-09-23",
+      "event": "verification_orchestrateur",
+      "note": "P0 et P1 verifies de premiere main: migrations absentes (confirme), ordre Add/Publish/SaveChanges (confirme), AddHealthChecks nu + 2 MapHealthChecks identiques (confirme), sonar.yaml sans garde-fou fork (confirme), rabbitmq connexion par message (confirme)."
+    },
+    {
+      "ts": "2026-09-23",
+      "event": "synthese",
+      "note": "findings.md ecrit. 3 P0, 4 P1, 5 P2, 10 P3. doc-writer non dispatche: audit sans changement de code, rien a documenter dans le repo (DOC_SKIPPED)."
+    }
+  ]
+}
