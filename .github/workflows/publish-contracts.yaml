@@ -1,0 +1,28 @@
+name: Publish Leaderboard contracts
+
+on:
+  push:
+    tags: ["contracts-v*"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    name: Pack and publish Leaderboard.Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+
+      - name: Pack Leaderboard.Contracts
+        run: dotnet pack Leaderboard.Contracts/Leaderboard.Contracts.csproj --configuration Release --output artifacts/contracts
+
+      - name: Publish package to GitHub Packages
+        run: dotnet nuget push "artifacts/contracts/*.nupkg" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key "${{ secrets.GITHUB_TOKEN }}" --skip-duplicate

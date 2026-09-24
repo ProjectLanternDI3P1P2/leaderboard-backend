@@ -21,7 +21,7 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
 
       - name: Configure GitHub Packages
-        run: dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --name github --username "${{ github.actor }}" --password "${{ secrets.GITHUB_TOKEN }}" --store-password-in-clear-text
+        run: dotnet nuget update source github --configfile NuGet.config --username "${{ github.actor }}" --password "${{ secrets.GITHUB_TOKEN }}" --store-password-in-clear-text
 
       # Release, unlike the test job: a warning that only surfaces in a release build
       # should fail here rather than at packaging time.

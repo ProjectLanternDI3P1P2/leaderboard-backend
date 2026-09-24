@@ -9,6 +9,14 @@
       "package-name": "dotnet-backend-template",
       "changelog-path": "CHANGELOG.md",
       "extra-files": ["Leaderboard.Presentation/Leaderboard.Presentation.csproj"]
+    },
+    "Leaderboard.Contracts": {
+      "package-name": "Leaderboard.Contracts",
+      "component": "contracts",
+      "include-component-in-tag": true,
+      "versioning": "always-bump-major",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": ["Leaderboard.Contracts.csproj"]
     }
   },
   "changelog-sections": [
