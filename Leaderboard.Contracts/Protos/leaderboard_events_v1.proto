@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package leaderboard.events.v1;
+
+option csharp_namespace = "Leaderboard.Contracts.Events.V1";
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+message GameEventMessage {
+  string version = 1;
+  string transaction_id = 2;
+  string game_id = 3;
+  string source_service = 4;
+  google.protobuf.Timestamp timestamp = 5;
+  string user_id = 6;
+  string hero_id = 7;
+  string action_type = 8;
+  EventData data = 9;
+}
+
+message EventData {
+  optional string target_id = 1;
+  optional string target_type = 2;
+  optional string zone_id = 3;
+  optional double value_numeric = 4;
+  google.protobuf.Struct attributes = 5;
+}

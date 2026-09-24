@@ -3,8 +3,8 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: combat
-      POSTGRES_DB: combat
+      POSTGRES_USER: leaderboard
+      POSTGRES_DB: leaderboard
       # Sonar flags a committed password. No auth, so loopback-only.
       POSTGRES_HOST_AUTH_METHOD: trust
     ports:
@@ -12,7 +12,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U combat -d combat"]
+      test: ["CMD-SHELL", "pg_isready -U leaderboard -d leaderboard"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -26,11 +26,11 @@ services:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=combat;Username=combat"
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=leaderboard;Username=leaderboard"
       RabbitMq__Enabled: "true"
       RabbitMq__HostName: rabbitmq
-      RabbitMq__UserName: combat
-      RabbitMq__Password: combat
+      RabbitMq__UserName: leaderboard
+      RabbitMq__Password: leaderboard
     ports:
       - "8080:8080"
       # Internal gRPC endpoint. Do not expose this port in production Kubernetes ingress.
@@ -39,8 +39,8 @@ services:
   rabbitmq:
     image: rabbitmq:4-management-alpine
     environment:
-      RABBITMQ_DEFAULT_USER: combat
-      RABBITMQ_DEFAULT_PASS: combat
+      RABBITMQ_DEFAULT_USER: leaderboard
+      RABBITMQ_DEFAULT_PASS: leaderboard
     ports:
       - "127.0.0.1:5672:5672"
       - "127.0.0.1:15672:15672"
