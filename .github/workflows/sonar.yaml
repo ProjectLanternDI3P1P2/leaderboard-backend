@@ -55,10 +55,8 @@ jobs:
           NUGET_USERNAME: ${{ github.actor }}
           NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p "$HOME/.nuget/NuGet"
-          touch "$HOME/.nuget/NuGet/NuGet.Config"
-          if [ -f "$HOME/.nuget/NuGet/NuGet.Config" ]; then dotnet nuget remove source github --configfile "$HOME/.nuget/NuGet/NuGet.Config" || true; fi
-          dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --name github --configfile "$HOME/.nuget/NuGet/NuGet.Config" --username "$NUGET_USERNAME" --password "$NUGET_AUTH_TOKEN" --store-password-in-clear-text
+          dotnet nuget remove source github || true
+          dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --name github --username "$NUGET_USERNAME" --password "$NUGET_AUTH_TOKEN" --store-password-in-clear-text
 
       # dotnet-sonarscanner and dotnet-coverage are pinned in dotnet-tools.json, so CI
       # and a developer's machine run the same versions.
