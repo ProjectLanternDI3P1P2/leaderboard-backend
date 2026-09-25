@@ -86,7 +86,7 @@ Apply the EF Core migrations before calling endpoints that persist data:
 
 ```powershell
 dotnet tool restore
-dotnet tool run dotnet-ef database update --project Leaderboard.Infrastructure --startup-project Leaderboard.Presentation
+dotnet tool run dotnet-ef database update --project Leaderboard.Infrastructure --startup-project Leaderboard.Infrastructure
 ```
 
 ## Toolchain
@@ -115,20 +115,25 @@ secret instead of storing it in the configuration file.
 ## Database migrations
 
 `Leaderboard.Infrastructure` owns both the migrations and the design-time
-`LeaderboardDbContextFactory`; `Leaderboard.Presentation` is the startup project
-for EF Core Tools. This keeps `Leaderboard.Presentation` free of the EF Core Design
-dependency. The factory loads the Presentation configuration from the repository
-root and lets `ConnectionStrings__DefaultConnection` override it.
+`LeaderboardDbContextFactory`; `Leaderboard.Infrastructure` is also the startup
+project for EF Core Tools. The factory loads the Presentation configuration from
+the repository root and lets `ConnectionStrings__DefaultConnection` override it.
 
 ```powershell
 dotnet tool restore
-dotnet tool run dotnet-ef migrations add <MigrationName> --project Leaderboard.Infrastructure --startup-project Leaderboard.Presentation
-dotnet tool run dotnet-ef database update --project Leaderboard.Infrastructure --startup-project Leaderboard.Presentation
+dotnet tool run dotnet-ef migrations add <MigrationName> --project Leaderboard.Infrastructure --startup-project Leaderboard.Infrastructure
+dotnet tool run dotnet-ef database update --project Leaderboard.Infrastructure --startup-project Leaderboard.Infrastructure
 ```
 
-If you created the `Players` table manually while testing, start with a fresh
-local volume (`docker compose down -v`, then `docker compose up -d`) before the
-first `database update`; the initial migration must create that table itself.
+The leaderboard schema migration creates the English-named tables `classes`,
+`heroes`, `statistics`, `hero_statistics`, `achievements`, and
+`hero_achievements`. The template `Player` entity is still available for the
+existing template tests, but its table mapping is excluded from migrations, so
+the leaderboard migration does not create `Players`.
+
+If you created old local tables manually while testing, start with a fresh local
+volume (`docker compose down -v`, then `docker compose up -d`) before the first
+`database update`.
 
 For host-based development, `appsettings.Development.json` targets the Compose
 PostgreSQL port `5433`. The Compose API uses its own `postgres:5432` connection.

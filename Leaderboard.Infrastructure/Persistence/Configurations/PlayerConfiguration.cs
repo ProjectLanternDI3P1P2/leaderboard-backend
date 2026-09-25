@@ -8,6 +8,8 @@ public class PlayerConfiguration : IEntityTypeConfiguration<Player>
 {
     public void Configure(EntityTypeBuilder<Player> builder)
     {
+        builder.ToTable("Players", table => table.ExcludeFromMigrations());
+
         builder.HasKey(p => p.Id);
 
         builder.Property(p => p.Id)
