@@ -1,7 +1,5 @@
-name: Publish Protocol Buffer contracts
+name: Publish Leaderboard contracts
 
-# The contracts component creates contracts-vN.0.0 tags on main. Publishing only
-# from those tags ensures consumers can depend on an immutable contract Vn.
 on:
   push:
     tags: ["contracts-v*"]
@@ -12,7 +10,7 @@ permissions:
 
 jobs:
   publish:
-    name: Pack and publish Combat.Contracts
+    name: Pack and publish Leaderboard.Contracts
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -23,8 +21,10 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
 
-      - name: Pack released Protocol Buffer contract
-        run: dotnet pack Combat.Contracts/Combat.Contracts.csproj --configuration Release --output artifacts/contracts
+      - name: Pack Leaderboard.Contracts
+        run: dotnet pack Leaderboard.Contracts/Leaderboard.Contracts.csproj --configuration Release --output artifacts/contracts
 
       - name: Publish package to GitHub Packages
-        run: dotnet nuget push "artifacts/contracts/*.nupkg" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key "${{ secrets.GITHUB_TOKEN }}" --skip-duplicate
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: dotnet nuget push "artifacts/contracts/*.nupkg" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key "$NUGET_AUTH_TOKEN" --skip-duplicate

@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   format:
@@ -21,7 +22,15 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
 
+      - name: Configure GitHub Packages
+        env:
+          NUGET_USERNAME: ${{ github.actor }}
+          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dotnet nuget remove source github || true
+          dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --name github --username "$NUGET_USERNAME" --password "$NUGET_AUTH_TOKEN" --store-password-in-clear-text
+
       # --severity warn, not the default: the style rules in .editorconfig are set to
       # warning, and the default threshold would only ever catch whitespace.
       - name: Verify formatting
-        run: dotnet format Combat.Presentation.slnx --verify-no-changes --severity warn
+        run: dotnet format Leaderboard.Presentation.slnx --verify-no-changes --severity warn

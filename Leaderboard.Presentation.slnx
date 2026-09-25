@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="Leaderboard.Contracts/Leaderboard.Contracts.csproj" />
+  <Project Path="Leaderboard.Application/Leaderboard.Application.csproj" />
+  <Project Path="Leaderboard.Domain/Leaderboard.Domain.csproj" />
+  <Project Path="Leaderboard.Infrastructure/Leaderboard.Infrastructure.csproj" />
+  <Project Path="Leaderboard.Test/Leaderboard.Test.csproj" Id="cd984a8a-40c0-41c1-a8df-cac3f3814504" />
+  <Project Path="Leaderboard.Presentation/Leaderboard.Presentation.csproj" />
+</Solution>

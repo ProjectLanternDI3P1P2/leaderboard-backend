@@ -1,8 +1,0 @@
-<Solution>
-  <Project Path="Combat.Contracts/Combat.Contracts.csproj" />
-  <Project Path="Combat.Application/Combat.Application.csproj" />
-  <Project Path="Combat.Domain/Combat.Domain.csproj" />
-  <Project Path="Combat.Infrastructure/Combat.Infrastructure.csproj" />
-  <Project Path="Combat.Test/Combat.Test.csproj" Id="cd984a8a-40c0-41c1-a8df-cac3f3814504" />
-  <Project Path="Combat.Presentation/Combat.Presentation.csproj" />
-</Solution>

@@ -17,6 +17,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  packages: read
 
 jobs:
   sonar:
@@ -49,6 +50,14 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
 
+      - name: Configure GitHub Packages
+        env:
+          NUGET_USERNAME: ${{ github.actor }}
+          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dotnet nuget remove source github || true
+          dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --name github --username "$NUGET_USERNAME" --password "$NUGET_AUTH_TOKEN" --store-password-in-clear-text
+
       # dotnet-sonarscanner and dotnet-coverage are pinned in dotnet-tools.json, so CI
       # and a developer's machine run the same versions.
       - name: Restore .NET tools
@@ -61,14 +70,14 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           dotnet dotnet-sonarscanner begin \
-            /k:"ProjectLanternDI3P1P2_dotnet-backend-template" \
+            /k:"ProjectLanternDI3P1P2_leaderboard-backend" \
             /o:"projectlanterndi3p1p2" \
             /d:sonar.token="$SONAR_TOKEN" \
             /d:sonar.host.url="https://sonarcloud.io" \
             /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
-          dotnet build Combat.Presentation.slnx --no-incremental
+          dotnet build Leaderboard.Presentation.slnx --no-incremental
           # Sonar does not read Cobertura for C#; dotnet-coverage's xml format is the
           # vscoveragexml one it expects.
-          dotnet dotnet-coverage collect "dotnet test --solution Combat.Presentation.slnx" \
+          dotnet dotnet-coverage collect "dotnet test --solution Leaderboard.Presentation.slnx" \
             -f xml -o coverage.xml
           dotnet dotnet-sonarscanner end /d:sonar.token="$SONAR_TOKEN"
