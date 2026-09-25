@@ -1,5 +1,5 @@
 # --- Stage 1: Build ---
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM dhi/dotnet:10.0-sdk AS build
 WORKDIR /src
 
 # Disable .NET telemetry during build
@@ -27,7 +27,7 @@ RUN dotnet publish Leaderboard.Presentation/Leaderboard.Presentation.csproj \
 
 # --- Stage 2: Hardened Runtime ---
 # Use a "chiseled" (distroless) image to drastically reduce the attack surface
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-chiseled AS runtime
+FROM dhi/dotnet:10.0-aspnet-chiseled AS runtime
 WORKDIR /app
 
 # Harden .NET environment variables
