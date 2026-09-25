@@ -24,7 +24,9 @@ jobs:
         env:
           NUGET_USERNAME: ${{ github.actor }}
           NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: dotnet nuget update source github --configfile NuGet.config --username "$NUGET_USERNAME" --password "$NUGET_AUTH_TOKEN" --store-password-in-clear-text
+        run: |
+          dotnet nuget remove source github --configfile "$HOME/.nuget/NuGet/NuGet.Config" 2>/dev/null || true
+          dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --name github --configfile "$HOME/.nuget/NuGet/NuGet.Config" --username "$NUGET_USERNAME" --password "$NUGET_AUTH_TOKEN" --store-password-in-clear-text
 
       # Release, unlike the test job: a warning that only surfaces in a release build
       # should fail here rather than at packaging time.
