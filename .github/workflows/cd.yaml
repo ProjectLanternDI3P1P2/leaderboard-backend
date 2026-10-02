@@ -1,0 +1,26 @@
+name: CD - Publish and promote image
+
+on:
+  push:
+    branches: [dev]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  delivery:
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/dev'
+    permissions:
+      contents: read
+      packages: read
+    uses: ProjectLanternDI3P1P2/platform-gitops/.github/workflows/publish-and-promote.yaml@main
+    with:
+      application: progression
+      image: registry.lantern.diiage/lantern/leaderboard-backend
+    secrets:
+      HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+      HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
+      GITOPS_DISPATCH_TOKEN: ${{ secrets.GITOPS_DISPATCH_TOKEN }}
