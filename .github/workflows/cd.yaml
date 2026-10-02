@@ -1,0 +1,155 @@
+name: CD - Publish Docker image
+
+# CD is deliberately separate from CI so its runs are visible in Actions.
+# A manual run on dev updates :dev-latest and publishes :dev-<digest>.
+# Application release tags publish :vX.Y.Z and :main-latest from the same
+# build, so main-latest always points to a release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-docker-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: diiageleaderboardimage/leaderboard-image
+
+permissions: {}
+
+jobs:
+  publish:
+    name: Publish Docker image
+
+    # Manual image publication is restricted to the dev branch.
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/dev'
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Compute image tags
+        id: image
+        shell: bash
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          sha="$(git rev-parse HEAD)"
+
+          if [ "$REF_TYPE" = "tag" ]; then
+            tags="${IMAGE}:${REF_NAME}"
+            tags+=$'\n'"${IMAGE}:main-latest"
+            source="release tag ${REF_NAME}"
+          else
+            tags="${IMAGE}:dev-latest"
+            source="dev commit ${sha}"
+          fi
+
+          {
+            echo "sha=${sha}"
+            echo "source=${source}"
+            echo "tags<<EOF"
+            echo "$tags"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.image.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.image.outputs.sha }}
+
+      - name: Tag dev image by digest
+        id: dev_digest
+        if: github.ref == 'refs/heads/dev'
+        shell: bash
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          if [[ ! "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Unexpected image digest: $DIGEST" >&2
+            exit 1
+          fi
+
+          tag="${IMAGE}:dev-${DIGEST#sha256:}"
+
+          docker buildx imagetools create \
+            --prefer-index=false \
+            --tag "$tag" \
+            "${IMAGE}@${DIGEST}"
+
+          actual_digest="$(
+            docker buildx imagetools inspect \
+              "$tag" \
+              --format '{{.Manifest.Digest}}'
+          )"
+
+          if [ "$actual_digest" != "$DIGEST" ]; then
+            echo "Digest mismatch for $tag: expected $DIGEST, got $actual_digest" >&2
+            exit 1
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Verify published image
+        shell: bash
+        env:
+          TAGS: ${{ steps.image.outputs.tags }}
+          DEV_DIGEST_TAG: ${{ steps.dev_digest.outputs.tag }}
+        run: |
+          if [ -n "$DEV_DIGEST_TAG" ]; then
+            TAGS+=$'\n'"$DEV_DIGEST_TAG"
+          fi
+
+          while IFS= read -r tag; do
+            docker buildx imagetools inspect "$tag" > /dev/null
+            echo "Verified $tag"
+          done <<< "$TAGS"
+
+      - name: Write delivery summary
+        shell: bash
+        env:
+          SOURCE: ${{ steps.image.outputs.source }}
+          TAGS: ${{ steps.image.outputs.tags }}
+          DEV_DIGEST_TAG: ${{ steps.dev_digest.outputs.tag }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          if [ -n "$DEV_DIGEST_TAG" ]; then
+            TAGS+=$'\n'"$DEV_DIGEST_TAG"
+          fi
+
+          {
+            echo "## Docker image published"
+            echo
+            echo "- Source: ${SOURCE}"
+            echo "- Digest: \`${DIGEST}\`"
+            echo "- Tags:"
+
+            while IFS= read -r tag; do
+              echo "  - \`${tag}\`"
+            done <<< "$TAGS"
+          } >> "$GITHUB_STEP_SUMMARY"
