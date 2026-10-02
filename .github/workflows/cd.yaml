@@ -16,7 +16,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ProjectLanternDI3P1P2/platform-gitops/.github/workflows/publish-and-promote.yaml@main
+    uses: ProjectLanternDI3P1P2/platform-gitops/.github/workflows/publish-and-promote.yaml@b5ac372c8d41b074ab76d1de4a715a42f492ced4 # feat/argocd-delivery
     with:
       application: progression
       image: registry.lantern.diiage/lantern/leaderboard-backend
