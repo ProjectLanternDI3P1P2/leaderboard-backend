@@ -1,47 +1,30 @@
-# --- Stage 1: Build ---
-FROM dhi/dotnet:10.0-sdk AS build
+# syntax=docker/dockerfile:1
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS sources
 WORKDIR /src
-
-# Disable .NET telemetry during build
-ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
-
+COPY NuGet.config ./
 COPY Leaderboard.Presentation.slnx ./
+COPY Leaderboard.Contracts/Leaderboard.Contracts.csproj Leaderboard.Contracts/
 COPY Leaderboard.Domain/Leaderboard.Domain.csproj Leaderboard.Domain/
 COPY Leaderboard.Application/Leaderboard.Application.csproj Leaderboard.Application/
 COPY Leaderboard.Infrastructure/Leaderboard.Infrastructure.csproj Leaderboard.Infrastructure/
 COPY Leaderboard.Presentation/Leaderboard.Presentation.csproj Leaderboard.Presentation/
 COPY Leaderboard.Test/Leaderboard.Test.csproj Leaderboard.Test/
 
-RUN dotnet restore Leaderboard.Presentation.slnx
-
+# Leaderboard always consumes the released contract from GitHub Packages.
+FROM sources AS build
+RUN --mount=type=secret,id=github_packages_credentials,env=NuGetPackageSourceCredentials_github \
+    dotnet restore Leaderboard.Presentation.slnx
 COPY . .
-
-# Hardened build without debug symbols
 RUN dotnet publish Leaderboard.Presentation/Leaderboard.Presentation.csproj \
-    --configuration Release \
-    --output /app/publish \
-    --no-restore \
-    /p:UseAppHost=false \
-    /p:DebugType=None \
-    /p:DebugSymbols=false
+    --configuration Release --output /app/publish --no-restore /p:UseAppHost=false
 
-# --- Stage 2: Hardened Runtime ---
-# Use a "chiseled" (distroless) image to drastically reduce the attack surface
-FROM dhi/dotnet:10.0-aspnet-chiseled AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime-base
 WORKDIR /app
-
-# Harden .NET environment variables
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
-    DOTNET_EnableDiagnostics=0 \
-    ASPNETCORE_URLS=http://+:8080
-
-# Single unprivileged port; HTTPS will be handled by the Kubernetes Ingress
-EXPOSE 8080
-
-# Explicitly grant ownership to the non-root user during copy
-COPY --from=build --chown=$APP_UID:$APP_UID /app/publish .
-
-# Execute as non-root user (built-in by default in chiseled images)
+    DOTNET_EnableDiagnostics=0
+EXPOSE 8080 8081
 USER $APP_UID
-
 ENTRYPOINT ["dotnet", "Leaderboard.Presentation.dll"]
+
+FROM runtime-base AS runtime
+COPY --from=build --chown=$APP_UID:$APP_UID /app/publish .

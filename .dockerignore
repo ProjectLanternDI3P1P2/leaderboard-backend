@@ -10,3 +10,8 @@
 **/coverage/
 **/logs/
 **/*.log
+
+# Local credentials and Git metadata must never enter build contexts.
+.git
+.env
+.env.*
