@@ -2,6 +2,7 @@ using Leaderboard.Domain.Services;
 using Leaderboard.Infrastructure.Grpc;
 using Leaderboard.Infrastructure.Messaging;
 using Leaderboard.Infrastructure.Persistence;
+using Leaderboard.Infrastructure.Persistence.Mongo;
 using Leaderboard.Infrastructure.PipelineBehavior;
 using Leaderboard.Infrastructure.Services;
 using MediatR;
@@ -31,6 +32,7 @@ public static class InfrastructureServiceRegistration
             .AddEfConnection()
             .AddRepositories()
             .AddGrpcConfiguration(configuration)
+            .AddMongoEventStore(configuration)
             .AddMessaging(configuration);
     }
 
