@@ -1,6 +1,4 @@
 using Leaderboard.Domain.Services;
-using Leaderboard.Infrastructure.Grpc;
-using Leaderboard.Infrastructure.Messaging;
 using Leaderboard.Infrastructure.Persistence;
 using Leaderboard.Infrastructure.PipelineBehavior;
 using Leaderboard.Infrastructure.Services;
@@ -29,9 +27,7 @@ public static class InfrastructureServiceRegistration
             .AddSingleton<IClock, SystemClock>()
             .AddTransient(typeof(IPipelineBehavior<,>), typeof(CommandTransactionBehavior<,>))
             .AddEfConnection()
-            .AddRepositories()
-            .AddGrpcConfiguration(configuration)
-            .AddMessaging(configuration);
+            .AddRepositories();
     }
 
     private static IServiceCollection AddRepositories(this IServiceCollection services)

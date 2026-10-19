@@ -52,7 +52,6 @@ expirent après 7 jours. La DLQ conserve les messages sans expiration automatiqu
 
 - `ConnectionStrings__DefaultConnection` : uniquement la base de ce service.
 - `Kestrel__Endpoints__Http__Url=http://+:8080`, `Protocols=Http1`.
-- `Kestrel__Endpoints__Grpc__Url=http://+:8081`, `Protocols=Http2`.
 - `Cors__AllowedOrigins__0` et `__1` : origines des deux fronts locaux.
 - `Serilog__MinimumLevel__Default` : niveau de logs.
 - `OTEL_SERVICE_NAME=progression`.
@@ -66,15 +65,12 @@ expirent après 7 jours. La DLQ conserve les messages sans expiration automatiqu
 Keycloak est validé à la gateway (ADR-GLOB-004), pas dans ce service :
 aucune variable de validation JWT ou de client secret n'est injectée ici.
 
-## Image et contrats privés
+## Image et dépendances
 
-Le Dockerfile expose 8080 et 8081 en interne ; Compose ne les publie pas sur l'hôte.
-`NuGet.config` réserve les packages de contrats à GitHub Packages.
-Les identifiants passent par le secret BuildKit `github_packages_credentials`,
-injecté dans `NuGetPackageSourceCredentials_github`, au format
-`Username=<login>;Password=<token>;ValidAuthenticationTypes=Basic`.
-Ne pas mettre de jeton dans un ARG, une image ou un fichier versionné.
+Le Dockerfile expose le port HTTP 8080. Les exemples gRPC et la dépendance Combat.Contracts ont été retirés.
+Les dépendances actuelles viennent de nuget.org : aucun secret GitHub Packages requis pour construire cette image.
+Les contrats producteurs seront intégrés lorsqu'ils seront fournis et validés.
 
 ```sh
-docker build --secret id=github_packages_credentials,env=GITHUB_PACKAGES_CREDENTIALS .
+docker compose up -d --build
 ```

@@ -1,7 +1,6 @@
 using Bogus;
 using FluentAssertions;
 using Leaderboard.Application.Features.PlayerUseCase.CreatePlayer;
-using Leaderboard.Application.Messaging;
 using Leaderboard.Domain.Entities;
 using Leaderboard.Domain.Repositories;
 using Moq;
@@ -11,16 +10,12 @@ namespace Leaderboard.Test.Features.PlayerUseCase.CreatePlayer;
 public class CreatePlayerCommandHandlerTests
 {
     private readonly Mock<IPlayerRepository> _playerRepositoryMock = new();
-    private readonly Mock<IMessagePublisher> _messagePublisherMock = new();
     private readonly CreatePlayerCommandHandler _handler;
     private readonly Faker _faker = new();
 
     public CreatePlayerCommandHandlerTests()
     {
-        _handler = new CreatePlayerCommandHandler(
-            _playerRepositoryMock.Object,
-            _messagePublisherMock.Object
-        );
+        _handler = new CreatePlayerCommandHandler(_playerRepositoryMock.Object);
     }
 
     [Fact]
@@ -58,16 +53,5 @@ public class CreatePlayerCommandHandlerTests
         capturedPlayer.Attack.Should().Be(command.Attack);
         capturedPlayer.Health.Should().Be(command.Health);
         capturedPlayer.MaxHealth.Should().Be(command.MaxHealth);
-        _messagePublisherMock.Verify(
-            publisher =>
-                publisher.PublishAsync(
-                    It.Is<MessageEnvelope>(message =>
-                        message.Type == PlayerCreatedMessageFactory.MessageType
-                        && message.Version == PlayerCreatedMessageFactory.Version
-                    ),
-                    It.IsAny<CancellationToken>()
-                ),
-            Times.Once
-        );
     }
 }
