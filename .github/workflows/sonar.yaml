@@ -92,7 +92,6 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           LEADERBOARD_TEST_DATABASE_CONNECTION: Host=localhost;Port=5432;Database=leaderboard_test;Username=leaderboard
-          LEADERBOARD_TEST_MONGO_CONNECTION: mongodb://localhost:27017/?replicaSet=rs0&directConnection=true
         run: |
           dotnet dotnet-sonarscanner begin \
             /k:"ProjectLanternDI3P1P2_leaderboard-backend" \
