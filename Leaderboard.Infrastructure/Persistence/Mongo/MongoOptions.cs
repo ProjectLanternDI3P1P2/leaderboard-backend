@@ -1,6 +1,6 @@
 namespace Leaderboard.Infrastructure.Persistence.Mongo;
 
-public sealed class MongoOptions
+public sealed record MongoOptions
 {
     public const string SectionName = "Mongo";
 

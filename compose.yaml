@@ -32,7 +32,7 @@ services:
       RabbitMq__UserName: leaderboard
       RabbitMq__Password: leaderboard
       # MongoDB runs on the host (replica set rs0), not in this compose file.
-      Mongo__ConnectionString: "mongodb://host.docker.internal:27017/?replicaSet=rs0&directConnection=true"
+      ConnectionStrings__Mongo: "mongodb://host.docker.internal:27017/?replicaSet=rs0&directConnection=true"
       RawEventConsumer__Enabled: "true"
     extra_hosts:
       - "host.docker.internal:host-gateway"

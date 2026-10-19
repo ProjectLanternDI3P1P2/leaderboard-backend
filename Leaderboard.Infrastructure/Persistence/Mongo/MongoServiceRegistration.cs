@@ -16,6 +16,13 @@ public static class MongoServiceRegistration
         MongoOptions options =
             configuration.GetSection(MongoOptions.SectionName).Get<MongoOptions>()
             ?? new MongoOptions();
+        // Like the PostgreSQL one, the connection string lives under ConnectionStrings.
+        string? connectionString = configuration.GetConnectionString("Mongo");
+        if (!string.IsNullOrWhiteSpace(connectionString))
+        {
+            options = options with { ConnectionString = connectionString };
+        }
+
         Validate(options);
 
         return services
