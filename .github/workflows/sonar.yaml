@@ -72,6 +72,15 @@ jobs:
           dotnet nuget remove source github || true
           dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --name github --username "$NUGET_USERNAME" --password "$NUGET_AUTH_TOKEN" --store-password-in-clear-text
 
+      # Mongo needs a replica set for majority writes, and a service container cannot run
+      # rs.initiate, so it is started here.
+      - name: Start MongoDB replica set
+        run: |
+          docker run -d --name mongo -p 27017:27017 mongo:7 --replSet rs0 --bind_ip_all
+          until docker exec mongo mongosh --quiet --eval 'db.hello().ok' > /dev/null 2>&1; do sleep 1; done
+          docker exec mongo mongosh --quiet --eval 'rs.initiate({_id: "rs0", members: [{_id: 0, host: "localhost:27017"}]})'
+          until docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; do sleep 1; done
+
       # dotnet-sonarscanner and dotnet-coverage are pinned in .config/dotnet-tools.json, so CI
       # and a developer's machine run the same versions.
       - name: Restore .NET tools
@@ -83,6 +92,7 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           LEADERBOARD_TEST_DATABASE_CONNECTION: Host=localhost;Port=5432;Database=leaderboard_test;Username=leaderboard
+          LEADERBOARD_TEST_MONGO_CONNECTION: mongodb://localhost:27017/?replicaSet=rs0&directConnection=true
         run: |
           dotnet dotnet-sonarscanner begin \
             /k:"ProjectLanternDI3P1P2_leaderboard-backend" \
