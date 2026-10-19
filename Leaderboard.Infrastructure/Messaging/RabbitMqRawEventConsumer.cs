@@ -1,38 +1,33 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Threading.Channels;
-using Combat.Contracts.Events.V1;
-using Leaderboard.Domain.Entities;
 using Leaderboard.Domain.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using Serilog.Context;
 
 namespace Leaderboard.Infrastructure.Messaging;
 
 /// <summary>
+/// Broker plumbing only: the logic lives in <see cref="RawEventBatchProcessor"/>, which is tested.
 /// Stores every received message in the raw event store, then acknowledges it.
 /// A message is acknowledged only once the write is confirmed, so a crash can
 /// redeliver (at least once) but never lose an event. Unreadable messages and
 /// batches that exhaust their retries are rejected to the dead-letter queue.
 /// </summary>
+[ExcludeFromCodeCoverage(
+    Justification = "Broker plumbing; the logic is covered through RawEventBatchProcessor."
+)]
 public sealed class RabbitMqRawEventConsumer(
     IOptions<RabbitMqOptions> rabbitMqOptions,
     IOptions<RawEventConsumerOptions> consumerOptions,
     IClock clock,
-    RawEventBatchWriter writer,
+    RawEventBatchProcessor processor,
     ILogger<RabbitMqRawEventConsumer> logger
 ) : BackgroundService
 {
-    private sealed record Delivery(
-        ulong Tag,
-        byte[] Body,
-        string? TransactionId,
-        DateTimeOffset ReceivedAt
-    );
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -105,13 +100,13 @@ public sealed class RabbitMqRawEventConsumer(
         );
         await channel.BasicQosAsync(0, (ushort)settings.BatchSize, false, cancellationToken);
 
-        Channel<Delivery> deliveries = Channel.CreateUnbounded<Delivery>();
+        Channel<RawEventDelivery> deliveries = Channel.CreateUnbounded<RawEventDelivery>();
         AsyncEventingBasicConsumer consumer = new(channel);
         consumer.ReceivedAsync += async (_, args) =>
         {
             // receivedAt is set here, on receipt, before any batching.
             await deliveries.Writer.WriteAsync(
-                new Delivery(
+                new RawEventDelivery(
                     args.DeliveryTag,
                     args.Body.ToArray(),
                     ReadTransactionId(args.BasicProperties),
@@ -127,135 +122,24 @@ public sealed class RabbitMqRawEventConsumer(
             cancellationToken
         );
 
+        var acknowledger = new ChannelAcknowledger(channel);
         while (await deliveries.Reader.WaitToReadAsync(cancellationToken))
         {
-            List<Delivery> batch = await ReadBatchAsync(
+            List<RawEventDelivery> batch = await processor.ReadBatchAsync(
                 deliveries.Reader,
-                settings,
                 cancellationToken
             );
-            await ProcessBatchAsync(channel, batch, cancellationToken);
+            await processor.ProcessAsync(batch, acknowledger, cancellationToken);
         }
     }
 
-    private static async Task<List<Delivery>> ReadBatchAsync(
-        ChannelReader<Delivery> reader,
-        RawEventConsumerOptions settings,
-        CancellationToken cancellationToken
-    )
+    private sealed class ChannelAcknowledger(IChannel channel) : IDeliveryAcknowledger
     {
-        List<Delivery> batch = [];
-        using CancellationTokenSource window = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken
-        );
-        window.CancelAfter(settings.BatchTimeout);
+        public async Task AckAsync(ulong tag, CancellationToken cancellationToken) =>
+            await channel.BasicAckAsync(tag, false, cancellationToken);
 
-        try
-        {
-            while (batch.Count < settings.BatchSize && await reader.WaitToReadAsync(window.Token))
-            {
-                while (batch.Count < settings.BatchSize && reader.TryRead(out Delivery? delivery))
-                {
-                    batch.Add(delivery);
-                }
-            }
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            // The batch window elapsed: write what we have.
-        }
-
-        return batch;
-    }
-
-    private async Task ProcessBatchAsync(
-        IChannel channel,
-        List<Delivery> batch,
-        CancellationToken cancellationToken
-    )
-    {
-        List<(Delivery Delivery, RawEvent Event)> valid = [];
-        foreach (Delivery delivery in batch)
-        {
-            if (TryMap(delivery, out RawEvent? rawEvent))
-            {
-                valid.Add((delivery, rawEvent));
-                continue;
-            }
-
-            logger.LogError("Unreadable message {DeliveryTag}, dead-lettering", delivery.Tag);
-            await channel.BasicNackAsync(delivery.Tag, false, false, cancellationToken);
-        }
-
-        if (valid.Count == 0)
-        {
-            return;
-        }
-
-        bool stored = await writer.TryWriteAsync(
-            valid.Select(item => item.Event).ToList(),
-            cancellationToken
-        );
-
-        foreach ((Delivery delivery, RawEvent rawEvent) in valid)
-        {
-            using IDisposable correlation = LogContext.PushProperty(
-                "CorrelationId",
-                rawEvent.CorrelationId
-            );
-            using IDisposable message = LogContext.PushProperty("MessageId", rawEvent.MessageId);
-
-            if (stored)
-            {
-                await channel.BasicAckAsync(delivery.Tag, false, cancellationToken);
-                logger.LogDebug("Stored raw event {Type}", rawEvent.Type);
-            }
-            else
-            {
-                logger.LogError(
-                    "Retries exhausted for raw event {Type}, dead-lettering",
-                    rawEvent.Type
-                );
-                await channel.BasicNackAsync(delivery.Tag, false, false, cancellationToken);
-            }
-        }
-    }
-
-    private static bool TryMap(Delivery delivery, out RawEvent rawEvent)
-    {
-        rawEvent = null!;
-        try
-        {
-            MessageEnvelopeMessage envelope = MessageEnvelopeMessage.Parser.ParseFrom(
-                delivery.Body
-            );
-            rawEvent = new RawEvent
-            {
-                Id = Guid.NewGuid(),
-                MessageId = Guid.Parse(envelope.MessageId),
-                TransactionId = delivery.TransactionId,
-                Type = envelope.Type,
-                Version = envelope.Version,
-                CorrelationId = envelope.CorrelationId,
-                CausationId = string.IsNullOrEmpty(envelope.CausationId)
-                    ? null
-                    : envelope.CausationId,
-                OccurredAtUtc = DateTimeOffset.Parse(
-                    envelope.OccurredAtUtc,
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    System.Globalization.DateTimeStyles.RoundtripKind
-                ),
-                ReceivedAt = delivery.ReceivedAt,
-                Producer = envelope.Producer,
-                Payload = envelope.Payload.ToByteArray(),
-            };
-            return true;
-        }
-        catch (Exception exception)
-            when (exception is FormatException or Google.Protobuf.InvalidProtocolBufferException)
-        {
-            return false;
-        }
+        public async Task RejectAsync(ulong tag, CancellationToken cancellationToken) =>
+            await channel.BasicNackAsync(tag, false, false, cancellationToken);
     }
 
     private static string? ReadTransactionId(IReadOnlyBasicProperties properties) =>
