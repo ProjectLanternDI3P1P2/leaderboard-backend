@@ -11,6 +11,10 @@ namespace Leaderboard.Infrastructure.Persistence.Mongo;
 /// </summary>
 public static class RawEventCollectionInitializer
 {
+    private const string BsonTypeKey = "bsonType";
+    private const string MessageIdField = "messageId";
+    private const string StringType = "string";
+
     public static async Task EnsureAsync(
         IMongoDatabase database,
         string collectionName,
@@ -48,8 +52,8 @@ public static class RawEventCollectionInitializer
                     new CreateIndexOptions { Name = "transactionId" }
                 ),
                 new CreateIndexModel<BsonDocument>(
-                    new BsonDocument("messageId", 1),
-                    new CreateIndexOptions { Name = "messageId" }
+                    new BsonDocument(MessageIdField, 1),
+                    new CreateIndexOptions { Name = MessageIdField }
                 ),
             ],
             cancellationToken
@@ -59,12 +63,12 @@ public static class RawEventCollectionInitializer
     private static BsonDocument Schema() =>
         new()
         {
-            { "bsonType", "object" },
+            { BsonTypeKey, "object" },
             {
                 "required",
                 new BsonArray
                 {
-                    "messageId",
+                    MessageIdField,
                     "type",
                     "version",
                     "correlationId",
@@ -78,16 +82,16 @@ public static class RawEventCollectionInitializer
                 "properties",
                 new BsonDocument
                 {
-                    { "messageId", new BsonDocument("bsonType", "binData") },
-                    { "transactionId", new BsonDocument("bsonType", "string") },
-                    { "type", new BsonDocument("bsonType", "string") },
-                    { "version", new BsonDocument("bsonType", "int") },
-                    { "correlationId", new BsonDocument("bsonType", "string") },
-                    { "causationId", new BsonDocument("bsonType", "string") },
-                    { "occurredAt", new BsonDocument("bsonType", "date") },
-                    { "receivedAt", new BsonDocument("bsonType", "date") },
-                    { "producer", new BsonDocument("bsonType", "string") },
-                    { "payload", new BsonDocument("bsonType", "binData") },
+                    { MessageIdField, new BsonDocument(BsonTypeKey, "binData") },
+                    { "transactionId", new BsonDocument(BsonTypeKey, StringType) },
+                    { "type", new BsonDocument(BsonTypeKey, StringType) },
+                    { "version", new BsonDocument(BsonTypeKey, "int") },
+                    { "correlationId", new BsonDocument(BsonTypeKey, StringType) },
+                    { "causationId", new BsonDocument(BsonTypeKey, StringType) },
+                    { "occurredAt", new BsonDocument(BsonTypeKey, "date") },
+                    { "receivedAt", new BsonDocument(BsonTypeKey, "date") },
+                    { "producer", new BsonDocument(BsonTypeKey, StringType) },
+                    { "payload", new BsonDocument(BsonTypeKey, "binData") },
                 }
             },
         };
