@@ -31,6 +31,11 @@ services:
       RabbitMq__HostName: rabbitmq
       RabbitMq__UserName: leaderboard
       RabbitMq__Password: leaderboard
+      # MongoDB runs on the host (replica set rs0), not in this compose file.
+      Mongo__ConnectionString: "mongodb://host.docker.internal:27017/?replicaSet=rs0&directConnection=true"
+      RawEventConsumer__Enabled: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8080:8080"
       # Internal gRPC endpoint. Do not expose this port in production Kubernetes ingress.
