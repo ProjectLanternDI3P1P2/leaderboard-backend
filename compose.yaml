@@ -18,7 +18,10 @@ services:
       retries: 10
 
   api:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+      secrets: [github_packages_credentials]
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,3 +55,7 @@ services:
 
 volumes:
   postgres-data:
+
+secrets:
+  github_packages_credentials:
+    environment: GITHUB_PACKAGES_CREDENTIALS
