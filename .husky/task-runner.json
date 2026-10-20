@@ -10,7 +10,7 @@
             "format",
             "${staged}"
          ],
-         "include": [ "**/*.cs" ]
+         "include": [ "**/*.cs", "**/*.csx", "**/*.csproj", "**/*.props", "**/*.targets", "**/*.xml", "**/*.config", "**/*.slnx", "**/*.xaml" ]
       },
       {
          // Without this the file is fixed on disk but the index keeps the old
@@ -19,7 +19,7 @@
          "group": "pre-commit",
          "command": "git",
          "args": [ "add", "${staged}" ],
-         "include": [ "**/*.cs" ]
+         "include": [ "**/*.cs", "**/*.csx", "**/*.csproj", "**/*.props", "**/*.targets", "**/*.xml", "**/*.config", "**/*.slnx", "**/*.xaml" ]
       }
    ]
 }
