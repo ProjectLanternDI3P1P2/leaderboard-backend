@@ -75,6 +75,7 @@ public static class MessagingServiceRegistration
             || options.MaxAttempts < 1
             || string.IsNullOrWhiteSpace(options.QueueName)
             || string.IsNullOrWhiteSpace(options.DeadLetterQueueName)
+            || options.SourceExchanges.Any(string.IsNullOrWhiteSpace)
         )
         {
             throw new InvalidOperationException(

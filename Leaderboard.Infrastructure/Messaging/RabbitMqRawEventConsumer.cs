@@ -66,13 +66,6 @@ public sealed class RabbitMqRawEventConsumer(
             cancellationToken: cancellationToken
         );
 
-        await channel.ExchangeDeclareAsync(
-            broker.ExchangeName,
-            ExchangeType.Topic,
-            durable: true,
-            autoDelete: false,
-            cancellationToken: cancellationToken
-        );
         await channel.QueueDeclareAsync(
             settings.DeadLetterQueueName,
             durable: true,
@@ -92,12 +85,24 @@ public sealed class RabbitMqRawEventConsumer(
             },
             cancellationToken: cancellationToken
         );
-        await channel.QueueBindAsync(
-            settings.QueueName,
-            broker.ExchangeName,
-            settings.BindingKey,
-            cancellationToken: cancellationToken
-        );
+        IEnumerable<string> sourceExchanges =
+            settings.SourceExchanges.Count > 0 ? settings.SourceExchanges : [broker.ExchangeName];
+        foreach (string exchange in sourceExchanges)
+        {
+            await channel.ExchangeDeclareAsync(
+                exchange,
+                ExchangeType.Topic,
+                durable: true,
+                autoDelete: false,
+                cancellationToken: cancellationToken
+            );
+            await channel.QueueBindAsync(
+                settings.QueueName,
+                exchange,
+                settings.BindingKey,
+                cancellationToken: cancellationToken
+            );
+        }
         await channel.BasicQosAsync(0, (ushort)settings.BatchSize, false, cancellationToken);
 
         Channel<RawEventDelivery> deliveries = Channel.CreateUnbounded<RawEventDelivery>();
