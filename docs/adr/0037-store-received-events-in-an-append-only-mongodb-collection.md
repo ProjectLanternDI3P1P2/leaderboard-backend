@@ -29,10 +29,13 @@ the database (the application role may only `insert` and `find`).
 ADR-GLOB-002 leaves retry and dead-letter handling to the broker configuration.
 For this consumer:
 
-- A durable queue is bound with `BindingKey` to every producer exchange listed in
-  `RawEventConsumer:SourceExchanges` (each microservice publishes to its own
-  `<service>.events` exchange), and dead-letters to a durable parking queue
-  through the default exchange.
+- A durable queue is bound with `BindingKey` to `RabbitMq:ExchangeName`
+  (`progression.events`) and dead-letters to a durable parking queue through the
+  default exchange. Each microservice publishes to its own `<service>.events`
+  exchange; on the platform the broker routes those to `progression.events`
+  (`rabbitmq-provisioning` job of `platform-gitops`), and the service account may
+  not configure producer exchanges. `RawEventConsumer:SourceExchanges` binds the
+  queue to producer exchanges directly where no such routing exists (local compose).
 - Messages are consumed in batches. On a failed write the batch is retried with
   exponential backoff up to `MaxAttempts`; it is not acknowledged meanwhile.
 - After the retries are exhausted, or when a message cannot be read, the message
