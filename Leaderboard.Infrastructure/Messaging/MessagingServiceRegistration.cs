@@ -29,6 +29,7 @@ public static class MessagingServiceRegistration
         {
             services
                 .AddSingleton<RawEventBatchWriter>()
+                .AddSingleton<RawEventBatchProcessor>()
                 .AddHostedService<RabbitMqRawEventConsumer>();
         }
 

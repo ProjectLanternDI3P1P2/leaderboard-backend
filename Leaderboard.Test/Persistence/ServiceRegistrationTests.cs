@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Moq;
 
 namespace Leaderboard.Test.Persistence;
 
@@ -81,6 +82,29 @@ public sealed class ServiceRegistrationTests
             .Single(d => d.ServiceType == typeof(IMessagePublisher))
             .ImplementationType.Should()
             .Be(typeof(NoOpMessagePublisher));
+    }
+
+    [Fact]
+    public void AddMessaging_EnabledConsumer_ResolvesWithItsDependencies()
+    {
+        IConfiguration configuration = Configuration(
+            ("RabbitMq:Enabled", "true"),
+            ("RawEventConsumer:Enabled", "true")
+        );
+        var services = new ServiceCollection()
+            .AddLogging()
+            .AddSingleton<IClock>(new Mock<IClock>().Object)
+            .AddMongoEventStore(configuration)
+            .AddMessaging(configuration);
+
+        using ServiceProvider provider = services.BuildServiceProvider(
+            new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }
+        );
+
+        provider
+            .GetServices<IHostedService>()
+            .Should()
+            .ContainSingle(service => service is RabbitMqRawEventConsumer);
     }
 
     [Fact]
