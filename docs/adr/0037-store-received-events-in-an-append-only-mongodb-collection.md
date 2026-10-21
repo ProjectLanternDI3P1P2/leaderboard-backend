@@ -20,7 +20,8 @@ the database (the application role may only `insert` and `find`).
   constraint, so duplicates and old events are always kept.
 - The collection, indexes and schema validator are created by
   `RawEventCollectionInitializer`, run with a migration account. The application
-  role cannot create indexes.
+  role cannot create indexes. In Development the service runs it at startup, like
+  the EF Core migrations.
 - Period reads filter `from <= receivedAt < to` and sort by `(receivedAt, _id)`.
 
 ## Consumer retry and dead-letter convention
@@ -28,8 +29,10 @@ the database (the application role may only `insert` and `find`).
 ADR-GLOB-002 leaves retry and dead-letter handling to the broker configuration.
 For this consumer:
 
-- A durable queue is bound to the exchange and dead-letters to a durable parking
-  queue through the default exchange.
+- A durable queue is bound with `BindingKey` to every producer exchange listed in
+  `RawEventConsumer:SourceExchanges` (each microservice publishes to its own
+  `<service>.events` exchange), and dead-letters to a durable parking queue
+  through the default exchange.
 - Messages are consumed in batches. On a failed write the batch is retried with
   exponential backoff up to `MaxAttempts`; it is not acknowledged meanwhile.
 - After the retries are exhausted, or when a message cannot be read, the message

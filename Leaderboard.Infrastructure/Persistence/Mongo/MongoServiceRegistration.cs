@@ -31,6 +31,27 @@ public static class MongoServiceRegistration
             .AddSingleton<IRawEventStore, MongoRawEventStore>();
     }
 
+    /// <summary>
+    /// Development only, like EF Core migrations: deployed environments run
+    /// <see cref="RawEventCollectionInitializer"/> with the migration account (ADR-0037).
+    /// </summary>
+    public static async Task EnsureDevelopmentRawEventCollectionAsync(
+        this IServiceProvider services,
+        CancellationToken cancellationToken = default
+    )
+    {
+        MongoOptions options = services.GetRequiredService<IOptions<MongoOptions>>().Value;
+        IMongoDatabase database = services
+            .GetRequiredService<IMongoClient>()
+            .GetDatabase(options.DatabaseName);
+
+        await RawEventCollectionInitializer.EnsureAsync(
+            database,
+            options.CollectionName,
+            cancellationToken
+        );
+    }
+
     private static void Validate(MongoOptions options)
     {
         if (
