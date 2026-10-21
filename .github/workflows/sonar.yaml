@@ -73,13 +73,19 @@ jobs:
           dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --name github --username "$NUGET_USERNAME" --password "$NUGET_AUTH_TOKEN" --store-password-in-clear-text
 
       # Mongo needs a replica set for majority writes, and a service container cannot run
-      # rs.initiate, so it is started here.
+      # rs.initiate, so it is started here. Authentication is on so that the role test
+      # proves the application account cannot update or delete stored events
+      # (US-DATA-01); the admin password is random per run, so nothing is committed.
       - name: Start MongoDB replica set
         run: |
-          docker run -d --name mongodb --publish 27017:27017 mongo:7 --replSet rs0 --bind_ip_all
-          until docker exec mongodb mongosh --quiet --eval 'db.hello().ok' > /dev/null 2>&1; do sleep 1; done
-          docker exec mongodb mongosh --quiet --eval 'rs.initiate({_id: "rs0", members: [{_id: 0, host: "localhost:27017"}]})'
-          until docker exec mongodb mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; do sleep 1; done
+          MONGO_ADMIN_PASSWORD="$(openssl rand -hex 24)"
+          echo "::add-mask::$MONGO_ADMIN_PASSWORD"
+          docker run -d --name mongodb --publish 27017:27017             --env MONGO_INITDB_ROOT_USERNAME=ci --env MONGO_INITDB_ROOT_PASSWORD="$MONGO_ADMIN_PASSWORD"             --entrypoint bash mongo:7 -c 'openssl rand -base64 756 > /tmp/keyfile && chmod 400 /tmp/keyfile && chown 999:999 /tmp/keyfile && exec docker-entrypoint.sh mongod --replSet rs0 --keyFile /tmp/keyfile --bind_ip_all'
+          run_mongosh() { docker exec mongodb mongosh --quiet --username ci --password "$MONGO_ADMIN_PASSWORD" --eval "$1"; }
+          until run_mongosh 'db.hello().ok' > /dev/null 2>&1; do sleep 1; done
+          run_mongosh 'rs.initiate({_id: "rs0", members: [{_id: 0, host: "localhost:27017"}]})'
+          until run_mongosh 'db.hello().isWritablePrimary' | grep -q true; do sleep 1; done
+          echo "LEADERBOARD_TEST_MONGO_CONNECTION=mongodb://ci:${MONGO_ADMIN_PASSWORD}@localhost:27017/?replicaSet=rs0&directConnection=true&authSource=admin" >> "$GITHUB_ENV"
 
       # dotnet-sonarscanner and dotnet-coverage are pinned in .config/dotnet-tools.json, so CI
       # and a developer's machine run the same versions.
