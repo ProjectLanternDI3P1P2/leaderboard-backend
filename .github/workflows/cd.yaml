@@ -16,10 +16,10 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ProjectLanternDI3P1P2/platform-gitops/.github/workflows/publish-and-promote.yaml@e5568a718af2a6f5ef424d6fab20357078d3319e # Harbor groupe7.diiage.org:18443
+    uses: ProjectLanternDI3P1P2/platform-gitops/.github/workflows/publish-and-promote.yaml@9d823620501406e8b7ffccba742e73ab4d04879e # Harbor 10.4.111.200:18443
     with:
       application: leaderboard
-      image: groupe7.diiage.org:18443/lantern/leaderboard-backend
+      image: 10.4.111.200:18443/lantern/leaderboard-backend
     secrets:
       HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
       HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
