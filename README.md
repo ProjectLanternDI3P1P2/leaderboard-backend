@@ -37,9 +37,9 @@ dotnet run --project Leaderboard.Presentation/Leaderboard.Presentation.csproj
 
 ## Private NuGet packages
 
-Leaderboard restores `Combat.Contracts` from GitHub Packages. Define these
-credentials in the current PowerShell session before `dotnet restore` or
-`dotnet run`:
+`dotnet restore` and the production Dockerfile restore `Combat.Contracts` from
+GitHub Packages. Define these credentials in the current PowerShell session
+before `dotnet restore` or `dotnet run`:
 
 ```powershell
 $env:NuGetPackageSourceCredentials_github = "Username=<github-login>;Password=<personal-access-token>;ValidAuthenticationTypes=Basic"
@@ -47,6 +47,10 @@ $env:NuGetPackageSourceCredentials_github = "Username=<github-login>;Password=<p
 
 The token needs the `read:packages` scope. The `github` suffix matches the source
 name in `NuGet.config`; never commit the token or add it to a tracked `.env` file.
+
+`docker compose up --build` uses the `local-runtime` target instead: it packages
+`../combat-backend/Combat.Contracts` locally and needs neither this token nor a
+published package. The standard Dockerfile target remains the production path.
 
 ## Internal gRPC contract
 

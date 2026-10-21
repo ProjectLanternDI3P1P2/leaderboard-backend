@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.10
 
 # --- Stage 1: Build ---
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
