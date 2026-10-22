@@ -10,9 +10,11 @@ public sealed class RawEventConsumerOptions
     public string BindingKey { get; init; } = "#";
 
     /// <summary>
-    /// Producer exchanges the queue is bound to with <see cref="BindingKey"/>. Every
-    /// microservice publishes to its own exchange; when empty, only
-    /// <c>RabbitMq:ExchangeName</c> is bound.
+    /// Exchanges the consumer declares and binds its queue to with <see cref="BindingKey"/>.
+    /// Empty by default: on the platform the broker routes every producer exchange to
+    /// <c>RabbitMq:ExchangeName</c> (exchange-to-exchange bindings of the
+    /// <c>rabbitmq-provisioning</c> job), and the service account may not configure
+    /// producer exchanges. Set it only where no such routing exists, as in local compose.
     /// </summary>
     public List<string> SourceExchanges { get; init; } = [];
     public int BatchSize { get; init; } = 100;

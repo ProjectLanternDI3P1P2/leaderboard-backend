@@ -59,6 +59,12 @@ services:
       RabbitMq__Password: leaderboard
       ConnectionStrings__Mongo: "mongodb://mongo:27017/?replicaSet=rs0&directConnection=true"
       RawEventConsumer__Enabled: "true"
+      # No provisioning job locally: bind the queue to the producer exchanges directly.
+      # On the platform these bindings belong to the broker, see SourceExchanges.
+      RawEventConsumer__SourceExchanges__0: player.events
+      RawEventConsumer__SourceExchanges__1: dungeon.events
+      RawEventConsumer__SourceExchanges__2: combat.events
+      RawEventConsumer__SourceExchanges__3: rewards.events
     ports:
       - "8080:8080"
       # Internal gRPC endpoint. Do not expose this port in production Kubernetes ingress.
