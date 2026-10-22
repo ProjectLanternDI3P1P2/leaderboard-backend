@@ -48,3 +48,6 @@ jobs:
         env:
           LEADERBOARD_TEST_DATABASE_CONNECTION: Host=localhost;Port=5432;Database=leaderboard_test;Username=leaderboard
         run: dotnet test --solution Leaderboard.Presentation.slnx
+
+      - name: Verify production migration command against disposable PostgreSQL
+        run: bash .github/scripts/test-migration-command.sh
