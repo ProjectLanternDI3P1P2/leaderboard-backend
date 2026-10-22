@@ -81,7 +81,7 @@ public sealed class ServiceRegistrationTests
         disabled
             .Single(d => d.ServiceType == typeof(IMessagePublisher))
             .ImplementationType.Should()
-            .Be(typeof(NoOpMessagePublisher));
+            .Be<NoOpMessagePublisher>();
     }
 
     [Fact]
