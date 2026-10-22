@@ -24,6 +24,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      mongo:
+        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=leaderboard;Username=leaderboard"
@@ -31,6 +33,7 @@ services:
       RabbitMq__HostName: rabbitmq
       RabbitMq__UserName: leaderboard
       RabbitMq__Password: leaderboard
+      MongoArchive__ConnectionString: "mongodb://mongo:27017"
     ports:
       - "8080:8080"
 
@@ -47,6 +50,22 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+  mongo:
+    image: mongo:8.0
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   postgres-data:
+  rabbitmq-data:
+  mongo-data:

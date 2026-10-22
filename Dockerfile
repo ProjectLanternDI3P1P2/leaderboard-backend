@@ -12,6 +12,7 @@ COPY Leaderboard.Application/Leaderboard.Application.csproj Leaderboard.Applicat
 COPY Leaderboard.Infrastructure/Leaderboard.Infrastructure.csproj Leaderboard.Infrastructure/
 COPY Leaderboard.Presentation/Leaderboard.Presentation.csproj Leaderboard.Presentation/
 COPY Leaderboard.Test/Leaderboard.Test.csproj Leaderboard.Test/
+COPY scripts/collection/Collection.Load.csproj scripts/collection/
 
 RUN dotnet restore Leaderboard.Presentation.slnx
 

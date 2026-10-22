@@ -21,5 +21,7 @@
   <ItemGroup>
     <Protobuf Include="Protos/leaderboard_events_v1.proto" GrpcServices="None" />
     <None Include="Protos/leaderboard_events_v1.proto" Pack="true" PackagePath="proto" />
+    <Protobuf Include="Protos/collection_events_v1.proto" GrpcServices="None" />
+    <None Include="Protos/collection_events_v1.proto" Pack="true" PackagePath="proto" />
   </ItemGroup>
 </Project>

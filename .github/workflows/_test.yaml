@@ -11,6 +11,24 @@ jobs:
     name: dotnet test
     runs-on: ubuntu-latest
     services:
+      rabbitmq:
+        image: rabbitmq:4-management-alpine
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      mongo:
+        image: mongo:8.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok'"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
       postgres:
         image: postgres:17-alpine
         env:
@@ -38,4 +56,6 @@ jobs:
       - name: Run tests
         env:
           LEADERBOARD_TEST_DATABASE_CONNECTION: Host=localhost;Port=5432;Database=leaderboard_test;Username=leaderboard
+          LEADERBOARD_TEST_RABBITMQ_USER: guest
+          LEADERBOARD_TEST_RABBITMQ_PASSWORD: guest
         run: dotnet test --solution Leaderboard.Presentation.slnx

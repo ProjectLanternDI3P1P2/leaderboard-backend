@@ -1,0 +1,24 @@
+{
+  "envelopeVersion": 1,
+  "messageId": "00000000-0000-4000-8000-000000001014",
+  "transactionId": "00000000-0000-4000-8000-000000000900",
+  "producerSquad": "PRODUCER_SQUAD_COMBAT",
+  "eventType": "combat.consumable-used",
+  "eventVersion": 1,
+  "occurredAt": "2026-10-19T12:00:40Z",
+  "correlationId": "00000000-0000-4000-8000-000000000011",
+  "causationId": "00000000-0000-4000-8000-000000000800",
+  "consumableUsed": {
+    "combatId": "00000000-0000-4000-8000-000000000030",
+    "commandId": "00000000-0000-4000-8000-000000000054",
+    "actor": {
+      "playerId": "00000000-0000-4000-8000-000000000001",
+      "heroId": "00000000-0000-4000-8000-000000000002",
+      "clanIdAtOccurrence": "00000000-0000-4000-8000-000000000003"
+    },
+    "item": {
+      "itemDefinitionId": "00000000-0000-4000-8000-000000000070"
+    },
+    "quantity": 1
+  }
+}

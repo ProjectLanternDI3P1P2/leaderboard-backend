@@ -1,76 +1,55 @@
 # Configuration des communications — Leaderboard
 
-Référence : [architecture des communications](architecture/ARCHITECTURE_DES_COMMUNICATIONS_MICROSERVICES.fr.md), ADR-GLOB-002, 006, 008 et 009.
-
-Cette configuration décrit la cible, même lorsque les adaptateurs sont absents.
-Les futures implémentations devront lire ces sections via la configuration .NET.
-Ajouter une clé ne crée pas le client, le consommateur ou l'instrumentation.
-Le Compose de `frontend-game` fournit les valeurs de déploiement.
+Référence : [architecture des communications](architecture/ARCHITECTURE_DES_COMMUNICATIONS_MICROSERVICES.fr.md), ADR-GLOB-002, 006, 008 et 009. Ces clés décrivent les options effectivement lues par le service. Ajouter une clé ne crée pas un composant; les fichiers `.env` exemples ne sont chargés automatiquement ni par .NET ni par RabbitMQ.
 
 ## gRPC sortant
 
-Aucun appel gRPC sortant dans la matrice cible. Les anciennes sections
-`Player`/`Placeholder` sont retirées des paramètres de déploiement.
+Aucun appel gRPC sortant dans la matrice actuelle.
 
-## RabbitMQ
+## RabbitMQ — client de collecte
 
-Paramètres communs : `RabbitMq__Enabled`, `RabbitMq__HostName`,
-`RabbitMq__Port`, `RabbitMq__VirtualHost`, `RabbitMq__UserName`,
-`RabbitMq__Password`, `RabbitMq__ExchangeName`.
-Exchange de ce service : `progression.events`.
+Les variables `RabbitMq__*` configurent le client Leaderboard. Le broker, ses comptes et ses politiques nécessitent une configuration OPS distincte. Le DNS prévu est `rabbitmq.rabbitmq.svc.cluster.local`; OPS confirme sa disponibilité, le vhost et les identifiants.
 
-File réservée : `progression.events.v1`.
-Les futurs consommateurs lisent `RabbitMq__QueueName`,
-`RabbitMq__PrefetchCount=16`, `RabbitMq__DeadLetterExchangeName=lantern.dead-letter`,
-`RabbitMq__DeadLetterQueueName=progression.events.v1.dead` et les bindings indexés
-`RabbitMq__Subscriptions__N__ExchangeName` / `RabbitMq__Subscriptions__N__RoutingKey` :
+| Variable | Type / valeur sûre par défaut | Rôle / contrainte |
+|---|---|---|
+| `RabbitMq__Enabled` | bool, `false` | Active le consommateur. |
+| `RabbitMq__HostName` | string, `localhost` | Hôte broker; en cluster, DNS convenu avec OPS. |
+| `RabbitMq__Port` | int, `5672` | Port AMQP; 1–65535. Client actuel sans TLS. |
+| `RabbitMq__VirtualHost` | string, `/` | Vhost non vide. |
+| `RabbitMq__UserName` | string, `guest` | Compte client; remplacer en déploiement. |
+| `RabbitMq__Password` | string, `guest` | Secret client; fournir via Kubernetes Secret. |
+| `RabbitMq__QueueName` | string, `leaderboard.collection.v1` | File quorum durable de collecte. |
+| `RabbitMq__DeadLetterExchangeName` | string, `leaderboard.collection.dead-letter` | Exchange direct durable de quarantaine. |
+| `RabbitMq__DeadLetterQueueName` | string, `leaderboard.collection.v1.dead` | File quorum durable, distincte de la file de collecte; binding `quarantine`. Aucune TTL configurée. |
+| `RabbitMq__PrefetchCount` | ushort, `64` | QoS; 1–1000. |
+| `RabbitMq__RetryDelaySeconds` | int, `5` | Délai avant rejet/redélivrance espacée; 1–300 s. |
+| `RabbitMq__MaxDeliveryAttempts` | int, `10` | Limite de livraison quorum; 1–100, transfert durable vers DLQ. |
+| `RabbitMq__ReconnectDelaySeconds` | int, `5` | Temporisation reconnexion; 1–300 s. |
+| `RabbitMq__Subscriptions__N__ExchangeName` | string | Binding `N`; exchange attendu selon squad. |
+| `RabbitMq__Subscriptions__N__RoutingKey` | string | Binding `N`; exactement 16 routes du [contrat central](collection/README.md). |
 
-| N | Exchange | Routing key |
-| --- | --- | --- |
-| 0 | `player.events` | `player.game-session-started.v1` |
-| 1 | `player.events` | `player.game-session-ended.v1` |
-| 2 | `player.events` | `player.hero-created.v1` |
-| 3 | `player.events` | `player.game-session-member-joined.v1` |
-| 4 | `dungeon.events` | `dungeon.dungeon-run-started.v1` |
-| 5 | `dungeon.events` | `dungeon.room-entered.v1` |
-| 6 | `dungeon.events` | `dungeon.chest-opened.v1` |
-| 7 | `dungeon.events` | `dungeon.dungeon-run-ended.v1` |
-| 8 | `combat.events` | `combat.combat-started.v1` |
-| 9 | `combat.events` | `combat.action-resolved.v1` |
-| 10 | `combat.events` | `combat.combat-completed.v1` |
-| 11 | `rewards.events` | `rewards.reward-granted.v1` |
-| 12 | `rewards.events` | `rewards.inventory-item-consumed.v1` |
-| 13 | `rewards.events` | `rewards.equipment-changed.v1` |
-| 14 | `rewards.events` | `rewards.purchase-completed.v1` |
+La liste par défaut est dérivée du contrat, et si elle est configurée explicitement doit comporter exactement ces 16 routes. Au démarrage, l'application déclare les exchanges topic durables `dungeon.events`, `combat.events`, `player.events`, `rewards.events`, `progression.events`, la file quorum durable, les bindings et l'exchange/file de quarantaine durables. La file principale utilise une delivery-limit, dead-letter strategy at-least-once et overflow `reject-publish`. Le compte doit pouvoir déclarer/inspecter cette topologie, consommer la file et utiliser les ressources nécessaires. Prévoir aussi les droits de l'OPS pour créer comptes/vhost/politiques et fournir DNS/secrets. Pas de TLS RabbitMQ pris en charge actuellement; ne pas annoncer AMQPS.
 
-Le broker prépare ces files et bindings. Les futurs consommateurs doivent utiliser
-les acquittements manuels après traitement et dédupliquer les messages. La politique
-locale des files quorum limite les redélivrances à 5, puis dead-letter ; les messages
-expirent après 7 jours. La DLQ conserve les messages sans expiration automatique.
+## MongoDB — archivage
+
+| Variable | Type / valeur sûre par défaut | Rôle / contrainte |
+|---|---|---|
+| `MongoArchive__ConnectionString` | URI, `mongodb://localhost:27017` | URI MongoDB (`mongodb` ou `mongodb+srv`); secrets encodés dans l'URI. |
+| `MongoArchive__Database` | string, `leaderboard_datalake` | Base, non vide et sans `/`. |
+| `MongoArchive__Collection` | string, `raw_events` | Collection non vide. |
+| `MongoArchive__WriteConcern` | enum string, `Journaled` | `Journaled` (w=1+journal) ou `Majority` (w=majority+journal); timeout écriture 15 s. `Majority` exige explicitement `replicaSet` dans l'URI. |
+
+Mongo archive les corps originaux, sans TTL/purge configurée. Le service crée l'index `ReceivedAt, _id`; le compte doit insérer, lire et créer cet index. OPS fournit DNS joignable, authentification, TLS URI/serveur et sauvegardes/capacité adaptés à la rétention. Les comptes doivent être autorisés sur la base et collection.
 
 ## Autres paramètres fournis par Compose
 
-- `ConnectionStrings__DefaultConnection` : uniquement la base de ce service.
+- `ConnectionStrings__DefaultConnection` : base de service PostgreSQL.
 - `Kestrel__Endpoints__Http__Url=http://+:8080`, `Protocols=Http1`.
-- `Cors__AllowedOrigins__0` et `__1` : origines des deux fronts locaux.
-- `Serilog__MinimumLevel__Default` : niveau de logs.
-- `OTEL_SERVICE_NAME=progression`.
-- Variables standard réservées à l'instrumentation OpenTelemetry :
-  `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_SDK_DISABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`,
-  `OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_TRACES_EXPORTER`, `OTEL_METRICS_EXPORTER`,
-  `OTEL_LOGS_EXPORTER`, `OTEL_TRACES_SAMPLER`.
-  SDK désactivé par défaut ; aucun collecteur installé. Pour l'activer, fournir
-  un endpoint joignable depuis le réseau interne et intégrer le SDK dans le service.
-
-Keycloak est validé à la gateway (ADR-GLOB-004), pas dans ce service :
-aucune variable de validation JWT ou de client secret n'est injectée ici.
+- `Cors__AllowedOrigins__0` et `__1` : origines front locales.
+- `Serilog__MinimumLevel__Default` : niveau des logs.
+- `OTEL_SERVICE_NAME` et variables standard : `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_SDK_DISABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_TRACES_EXPORTER`, `OTEL_METRICS_EXPORTER`, `OTEL_LOGS_EXPORTER`, `OTEL_TRACES_SAMPLER`. SDK désactivé par défaut; aucun collecteur installé. Activation requiert endpoint joignable et intégration SDK.
+- Keycloak est validé à la gateway (ADR-GLOB-004); aucune variable de validation JWT/client secret n'est injectée ici.
 
 ## Image et dépendances
 
-Le Dockerfile expose le port HTTP 8080. Les exemples gRPC et la dépendance Combat.Contracts ont été retirés.
-Les dépendances actuelles viennent de nuget.org : aucun secret GitHub Packages requis pour construire cette image.
-Les contrats producteurs seront intégrés lorsqu'ils seront fournis et validés.
-
-```sh
-docker compose up -d --build
-```
+Le Dockerfile expose HTTP 8080. Les dépendances actuelles restaurent depuis nuget.org; aucun secret GitHub Packages n'est requis pour construire cette image. Consultez les [notes OPS](ops/README.md) et les [.env exemples](../.env.rabbitmq.example), [MongoDB](../.env.mongodb.example). Ces exemples ne valent ni déploiement Kubernetes ni configuration serveur.

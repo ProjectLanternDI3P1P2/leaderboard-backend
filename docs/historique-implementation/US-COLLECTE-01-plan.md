@@ -1,130 +1,41 @@
-# Plan de suivi — US-COLLECTE-01
+# US-COLLECTE-01 — suivi de livraison
 
-Date : 2026-10-19. Statut : préparation documentaire ; aucune implémentation de collecte ou de stockage déclarée terminée.
+## Résultat fonctionnel
 
-## Objectif et périmètre
+Le dépôt Leaderboard définit le format central `leaderboard.collection.v1`, les fiches des cinq squads, les fixtures JSON descriptives, ainsi que la réception RabbitMQ et l'archivage brut MongoDB. Voir [catalogue](../US-COLLECTE-01-catalogue-evenements.md) et [index contrat](../collection/README.md). Le format est prêt à intégrer; l'adoption/validation externe reste à obtenir. Aucun XP ni classement n'est calculé par la collecte.
 
-**List the events that each microservice needs to provide to us.**
+## Validation technique disponible
 
-Livrer un catalogue exploitable par les squads productrices et le futur collecteur RabbitMQ : événements, déclencheurs, données, contrats, routage et exemples vérifiables.
+La révision R4 a passé une revue indépendante et les contrôles suivants : CSharpier sur 67 fichiers; `dotnet build Leaderboard.Test/Leaderboard.Test.csproj --configuration Release --maxcpucount:1 -p:UseSharedCompilation=false` (0 avertissement, 0 erreur); `dotnet test --project Leaderboard.Test/Leaderboard.Test.csproj --configuration Release --no-build --minimum-expected-tests 78` (88 réussis, 0 échec, 0 ignoré); `docker compose build api` réussi. Les tests couvrent notamment 16 routes, 17 réceptions, octets exacts, ACK après insert, reprise et quarantaine avec RabbitMQ 4.3.6 et MongoDB 8.0.34. CI distante non revendiquée.
 
-Référence : [catalogue des événements](../US-COLLECTE-01-catalogue-evenements.md).
+## AC4 — charge réelle
 
-L'utilisateur fournit les noms et versions des packages des autres microservices. Les noms de propriétés du catalogue ne constituent pas encore des schémas Protobuf publiés. Le contrat local et les exemples Player/Combat sont ceux d'un template : leur remplacement n'est pas un prérequis de cette US documentaire.
+Critères p95 explicitement confirmés par l'utilisateur : p95 publication-vers-insertion Mongo de la dernière minute <= première minute et pente <=0 ms/min sur 600 s à 50/s. Le seuil de retard de cadence <=200 ms est un seuil propre au banc, non attribué à l'utilisateur.
 
-Hors périmètre : implémentation MongoDB (`US-DATA-01`), calcul XP/niveaux, projections de classement, développement des producteurs dans les autres dépôts, nettoyage général du template. La réalisation du consommateur et du banc RabbitMQ est un lot technique associé à attribuer, pas un élargissement implicite de cette US.
+R3 a été exécuté 600 s : 30 000 publiés, stockés et confirmés, 8 190 000 octets comparés sans anomalie ni backlog/DLQ; p95 32.3356→27.9661 ms et pente -0.3506569697 ms/min. Le résultat complet est FAIL: retard maximal de publication 2592.7408 ms (>200). Rapport dans `scripts/collection/results/6fdb38fc-d57e-44d9-b857-7033395375bd.json`.
 
-Convention : cocher uniquement après réalisation et vérification ; préciser l'artefact ou le résultat. Les cases cochées ci-dessous concernent uniquement les documents déjà modifiés.
+R4 a utilisé une émission cadencée et des confirms asynchrones bornés (256 en attente, timeout 30 s), seuils inchangés. À la demande de l'utilisateur, il a été arrêté vers la minute 3 : dernier instantané 9000 envoyés, 8999 confirmés, un en attente; arrêt des processus confirmé, aucun rapport final. Le critère complet demeure non validé. L'utilisateur a demandé de ne pas relancer de test long; ce choix est enregistré séparément, pas comme PASS.
 
-Intervention technique distincte demandée ensuite par l'utilisateur : suppression du package Combat et de ses exemples, compilation, tests et démarrage du template. Voir [le rapport de validation](2026-10-19-suppression-contrat-combat.md). Ces résultats ne clôturent pas les tâches de collecte ci-dessous.
+## Historique des décisions conservées
 
-## 1. Cadrage documentaire — cette US
+- `combat-completed` décrit victoire et défaite; Dungeon acceptance requise dans les deux cas, Rewards confirmation seulement pour victoire. Aucun calcul ni attribution XP par collecte.
+- Départ lobby est un fait métier, non une déconnexion; clan figé au moment de l'occurrence; mana nul explicite valide; transition d'étage répétée reçoit un nouvel ID.
+- Item instancié: quantity 1. L'événement de gain d'or indique explicitement le portefeuille joueur ou héros.
+- Extensions reportées: sélection de héros, équipement retiré, dépense d'or, coffre; ne pas les inclure dans les 16 routes.
+- L'outbox transactionnelle, les confirms, le routage non livré et retries à identité/octet stables sont exigences pour les squads, pas preuve de leur implémentation.
+- Le dépôt brut conserve les doublons et les corps exacts; projection seule peut dédupliquer; aucun TTL/purge n'est configuré.
 
-- [x] Recentrer le catalogue sur la liste des événements à fournir ; distinguer `US-DATA-01` et les futures projections.
-- [x] Corriger `combat-completed` : victoire et défaite ; acceptation Dungeon dans les deux cas, confirmation Rewards uniquement pour une victoire.
-- [x] Documenter la publication fiable par outbox transactionnelle côté producteur, confirmations, gestion des non-routables et reprises avec `MessageId` stable.
-- [x] Remplacer l'exigence de déduplication du dépôt brut par la conservation des soumissions, y compris celles partageant un identifiant de transaction.
-- [x] Documenter l'interface attendue avec le futur dépôt MongoDB immuable.
-- [ ] Compléter la matrice ci-dessous à partir des packages et versions fournis par l'utilisateur.
-- [ ] Pour chaque événement, indiquer : proposé / validé par la squad / disponible dans un package / vérifié avec un message réel. Ne pas confondre ces statuts.
+## Limites restantes
 
-### Matrice des contrats à compléter
+- Obtenir l'adoption/validation des producteurs externes; aucune implémentation, package NuGet ou déploiement Kubernetes externe n'est revendiqué.
+- AC4 600 s reste non validé, avec waiver utilisateur séparé; ne pas déclarer l'acceptation complète.
+- Implémentation locale documentée : voir [notes OPS](../ops/README.md), [configuration](../deployment-configuration.md) et [banc de charge](../../scripts/collection/README.md).
+- AC1–AC3 et leurs preuves détaillées : [bilan de validation](../collection/validation-us-collecte-01.md).
 
-| Producteur | Catalogue actuel | Package / version | Type Protobuf / enveloppe | Exchange / routing keys confirmés | Validation squad |
-|---|---|---|---|---|---|
-| Dungeon | Run commencé, étage entré, run terminé | À fournir | À confirmer | À confirmer | À obtenir |
-| Combat | Combat commencé, compétence utilisée, combat terminé, consommable utilisé ; compatibilité `combat-completed` | À fournir | À confirmer | À confirmer | À obtenir |
-| Player | Héros créé, participant entré, participant parti | À fournir | À confirmer | À confirmer | À obtenir |
-| Rewards | Objet attribué, objet équipé, or gagné | À fournir | À confirmer | À confirmer | À obtenir |
-| Progression | XP attribuée, changement de niveau : compléments proposés | À définir par le propriétaire | À confirmer | À confirmer | À obtenir |
+## Relais restant
 
-## 2. Décisions contractuelles — cette US avec les squads
-
-- [ ] Fixer les types, champs obligatoires, nullabilité, enums et versions de chaque contrat ; conserver les contrats dans le package de leur producteur.
-- [ ] Définir explicitement l'identifiant de transaction, distinct de l'identifiant interne de réception ; confirmer sa relation éventuelle avec `MessageId` et les identifiants métier.
-- [ ] Confirmer les noms/casses de `Producer`, l'enveloppe et la représentation des GUID et dates UTC sur le transport.
-- [ ] Résoudre `player.game-session-participant-joined` versus `player.game-session-member-joined` ; préciser l'événement du créateur et les changements de héros.
-- [ ] Définir départ, reconnexion et réentrée ; ne pas assimiler une coupure réseau à un départ métier.
-- [ ] Confirmer le déclencheur du début de run, le modèle d'étage et l'identité d'une transition répétée légitime.
-- [ ] Confirmer les résultats et snapshots des monstres, ainsi que les rangs autorisés.
-- [ ] Définir la coexistence ou migration de `combat-ended` et `combat-completed` ; aucune perte de défaite et aucun calcul d'XP fondé sur une confirmation insuffisante.
-- [ ] Confirmer l'identité des objets, l'ownership de l'or et du clan, et figer `ClanIdAtOccurrence` dans les faits.
-- [ ] Identifier explicitement les extensions retenues ou différées : équipement retiré, dépenses, coffres, sélection de héros. Aucun `leaderboard-updated` à ajouter sans besoin.
-- [ ] Aligner catalogue, architecture et configuration après validation ; ne pas remplacer les anciens abonnements sur la seule base d'une proposition.
-
-## 3. Livraison RabbitMQ — contrat de transfert et lot technique associé
-
-- [ ] Définir une file durable propre au collecteur, distincte des files métier ; confirmer qui provisionne exchanges, bindings, politique de livraison et DLQ.
-- [ ] Lister uniquement les abonnements validés ; spécifier préfetch, acquittements manuels, reprises espacées et bornées, gestion des non-routables et des indisponibilités.
-- [ ] Prévoir la prise en charge effective de ces paramètres par les options et le consommateur ; une clé de configuration seule n'implémente rien.
-- [ ] Définir le traitement des enveloppes illisibles et versions inconnues : conserver le corps brut si possible, sinon mise en quarantaine durable explicite ; aucune perte silencieuse ni boucle immédiate de requeue.
-- [ ] Documenter les garanties attendues des producteurs : état métier + outbox atomiques, publication après commit, confirmation broker, reprises conservant l'identité.
-- [ ] Distinguer validation documentaire de ces garanties et preuve d'implémentation dans les autres dépôts ; cette US ne peut pas garantir leur code.
-
-## 4. Passage de relais à US-DATA-01 — exigences à respecter
-
-Parcours cible : `RabbitMQ → réception brute → ajout MongoDB confirmé durable → ACK`.
-
-Le stockage reste à implémenter par le responsable de `US-DATA-01`. Un double ne prouve pas la durabilité MongoDB. Les points suivants constituent le contrat de transfert, sans imposer de bibliothèque ou schéma définitif.
-
-- [ ] Convenir d'une opération d'ajout et d'une lecture par période avec le responsable de `US-DATA-01` ; aucune opération applicative de modification ou suppression d'événement engagé.
-- [ ] Transmettre le corps original en octets, l'enveloppe/métadonnées disponibles, exchange/routing key, identifiant de transaction et `ReceivedAt` UTC. Convenir du point exact de capture de `ReceivedAt` et le conserver pendant une même tentative d'ajout.
-- [ ] Attribuer un identifiant interne de réception distinct ; ne jamais utiliser transaction ID, `MessageId` ou clé métier comme filtre d'unicité du dépôt brut. Deux soumissions partageant ces valeurs restent conservables.
-- [ ] Exiger un résultat d'ajout confirmant l'écriture durable avant ACK ; pas d'ACK en cas d'erreur ou résultat incertain. Documenter qu'une reprise après résultat incertain peut conserver une réception supplémentaire.
-- [ ] Préserver les événements bruts pendant les rejeux et calculs ; toute déduplication des effets s'applique aux projections séparées, jamais en suppression ou en filtrage de l'historique brut.
-- [ ] Confirmer l'absence de purge/TTL et la conservation sans limite planifiée, y compris des événements vieux d'un an.
-- [ ] Fixer les bornes de période (proposition : début inclus, fin exclue), le tri croissant sur `ReceivedAt`, le départage stable et la pagination restituant toutes les réceptions sans omission.
-- [ ] Obtenir la validation de ce contrat par le responsable de `US-DATA-01` avant de déclarer la chaîne complète opérationnelle.
-
-## 5. Jeu de test contractuel — livrable de cette US
-
-Préparer des fixtures avec données fictives, dates UTC fixes et identifiants explicites. Tant que les Protobuf ne sont pas validés, les exemples sont des descriptions, pas des preuves de compatibilité binaire.
-
-- [ ] Créer un manifeste lisible des fixtures indiquant contrat/version, routing key, champs attendus et résultat attendu.
-- [ ] Après réception des packages, produire les messages binaires avec les types générés des producteurs, sans dupliquer leurs `.proto`.
-- [ ] Fournir au minimum un exemple par événement retenu et les variantes ci-dessous.
-- [ ] Documenter les commandes de lancement, prérequis, résultat attendu et nettoyage limité à l'environnement de test.
-
-| Cas | Données de test | Résultat attendu |
-|---|---|---|
-| Participation | Créateur et second joueur rejoignent avec leurs héros | Les deux faits et leurs acteurs sont identifiables |
-| Étages | Début, passage 1→2, puis autre transition légitime 1→2 | Trois faits distincts, aucune déduplication par simple paire d'étages |
-| Monstres | Combat avec monstre normal et boss | Instances, types, niveaux et rangs présents |
-| Victoire / défaite | Un combat gagné, un perdu | Deux fins collectables ; défaite sans reward exigée |
-| Compatibilité | `combat-ended` et `combat-completed` pour un même combat | Les deux événements bruts sont conservables ; pas d'attribution d'XP dans la collecte |
-| Compétences | Coût positif, coût nul, compétence esquivée | Utilisations exécutées présentes ; commande refusée sans fait producteur |
-| Rewards | Objet empilable, objet instancié et gain d'or | Identifiants, quantités et causes interprétables |
-| Clan | Événement avec clan, puis changement de clan | Le premier événement conserve le clan à l'occurrence |
-| Transaction identique | Deux payloads sous le même transaction ID | Deux réceptions conservables, aucune contrainte d'unicité sur cet ID |
-| Redélivraison | Deux soumissions du même message | Deux réceptions conservables ; aucun filtre en amont du dépôt brut |
-| Dates | Occurrence ancienne, réception récente, égalité de dates de réception | Occurrence et réception distinctes ; tri et bornes vérifiables |
-| Invalide / inconnu | Corps illisible et version inconnue | Politique de conservation/quarantaine explicite, aucune perte silencieuse |
-
-## 6. Tests exécutables — lot technique associé, à attribuer
-
-Ces cases restent ouvertes jusqu'à l'existence du consommateur. Elles ne conditionnent pas artificiellement la clôture du catalogue documentaire.
-
-- [ ] Monter un RabbitMQ de test isolé et un publisher utilisant les packages validés.
-- [ ] Brancher le consommateur sur un dépôt de réception de test append-only pour vérifier routage et conservation des octets ; indiquer clairement qu'il ne valide pas MongoDB.
-- [ ] Publier les fixtures et vérifier type, routage, contenu brut et métadonnées reçus.
-- [ ] Bloquer puis libérer l'ajout dans le dépôt de test : aucun ACK avant succès ; message réessayable après échec.
-- [ ] Tester broker indisponible, reconnexion, redémarrage et message poison sans boucle de requeue incontrôlée.
-- [ ] Tester l'arrêt après écriture et avant ACK : nouvelle livraison conservable, aucune suppression de la réception précédente.
-- [ ] Ajouter un smoke test avec commande unique et résultat explicite ; distinguer tests sur double et tests de bout en bout réels.
-
-## 7. Acceptation intégrée — avec le responsable de US-DATA-01
-
-À exécuter sur MongoDB réel lorsque son US fournit le dépôt. La responsabilité d'implémentation reste à son équipe.
-
-- [ ] Deux événements sous le même transaction ID sont présents et inchangés.
-- [ ] Les tentatives applicatives de modification et suppression d'un événement engagé sont rejetées.
-- [ ] Un événement reçu il y a un an est présent et inchangé ; aucun mécanisme de purge ou TTL n'est planifié. Utiliser une fixture historique et vérifier la configuration, sans prétendre simuler une année d'exploitation.
-- [ ] La lecture d'une période restitue toutes les réceptions dans l'ordre convenu, y compris doublons, égalités et limites de pagination.
-- [ ] Les octets persistés correspondent aux octets soumis.
-- [ ] Panne/reprise MongoDB et résultat d'écriture incertain ne provoquent aucun ACK anticipé ; les réceptions supplémentaires restent conservées.
-
-## Clôture
-
-- [ ] US-COLLECTE-01 : catalogue validé avec les squads, matrice renseignée, exemples livrés et contrat de transfert accepté ; lister explicitement tout événement différé.
-- [ ] Lot technique RabbitMQ, si attribué : fixtures publiées/reçues et scénarios de panne exécutés avec preuves.
-- [ ] Intégration US-DATA-01 : tests MongoDB exécutés conjointement ; ne pas marquer ce lot terminé avec un dépôt simulé.
+- [ ] Obtenir adoption/validation des cinq squads productrices, notamment la sémantique métier et l'intégration du format central; l'attente n'empêche pas la disponibilité locale du contrat.
+- [ ] Confirmer lors de l'intégration que chaque producteur persiste changement + outbox atomiquement, publie après commit avec confirms et gère les retours non routables, puis reprend les mêmes octets/MessageId.
+- [ ] OPS confirme DNS `rabbitmq.rabbitmq.svc.cluster.local`, vhost, comptes, secrets et permissions de déclaration/consommation; fournit URI Mongo, TLS, permissions, capacité et sauvegardes.
+- [ ] Tout nouvel essai de charge de dix minutes requiert une demande explicite future. Un run interrompu sans rapport final n'est pas une validation.
+- [ ] Les extensions métier listées au catalogue demeurent hors contrat jusqu'à définition du besoin et du propriétaire.

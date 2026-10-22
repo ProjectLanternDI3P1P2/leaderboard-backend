@@ -1,0 +1,286 @@
+syntax = "proto3";
+
+package leaderboard.collection.v1;
+option csharp_namespace = "Leaderboard.Contracts.Collection.V1";
+
+import "google/protobuf/timestamp.proto";
+
+// Leaderboard-owned ingestion format, proposed for adoption by publishing squads.
+// This is a separate contract from leaderboard.events.v1.GameEventMessage.
+// All identifiers are nonempty lowercase GUID strings in canonical D format.
+// Required means required by GameEventContract.Validate, not by proto3 parsing.
+// All singular messages, IDs, enums, numeric/bool fields and repeated lists are
+// required; lists are nonempty. Optional strings may be absent as documented.
+// Scalar numeric/bool fields use optional solely to distinguish absence from zero/false.
+// Timestamps are normalized UTC instants. No producer-supplied receipt metadata.
+// Persist the COMPLETE original AMQP body; parsing/reserialization is not archival.
+message GameEventEnvelope {
+  uint32 envelope_version = 1; // Required, exactly 1 for this schema.
+  string message_id = 2; // Required; globally unique fact identity, stable on retry.
+  string transaction_id = 3; // Required; local business transaction, NOT unique per event.
+  ProducerSquad producer_squad = 4; // Required; owner of this event kind.
+  string event_type = 5; // Required; e.g. combat.skill-used (without .v1).
+  uint32 event_version = 6; // Required; exactly 1 for the payloads below.
+  google.protobuf.Timestamp occurred_at = 7; // Required; business occurrence, not publication.
+  optional string correlation_id = 8; // Journey identity if known, never a deduplication key.
+  optional string causation_id = 9; // Causing command/message identity if known.
+
+  // Exactly one payload matching event_type and producer_squad is required.
+  // Routing key = event_type + ".v" + event_version.
+  // Additive fields retain this wire version; breaking changes use new types/package.
+  // Never reuse field numbers. Package releases are versioned independently.
+  oneof payload {
+    DungeonRunStarted dungeon_run_started = 20;
+    FloorEntered floor_entered = 21;
+    DungeonRunEnded dungeon_run_ended = 22;
+    CombatStarted combat_started = 23;
+    SkillUsed skill_used = 24;
+    CombatResult combat_ended = 25;
+    ConsumableUsed consumable_used = 26;
+    CombatCompleted combat_completed = 27;
+    HeroCreated hero_created = 28;
+    ParticipantJoined participant_joined = 29;
+    ParticipantLeft participant_left = 30;
+    ItemGranted item_granted = 31;
+    ItemEquipped item_equipped = 32;
+    GoldEarned gold_earned = 33;
+    XpAwarded xp_awarded = 34;
+    LevelUp level_up = 35;
+  }
+}
+
+enum ProducerSquad {
+  PRODUCER_SQUAD_UNSPECIFIED = 0;
+  PRODUCER_SQUAD_DUNGEON = 1;
+  PRODUCER_SQUAD_COMBAT = 2;
+  PRODUCER_SQUAD_PLAYER = 3;
+  PRODUCER_SQUAD_REWARDS = 4;
+  PRODUCER_SQUAD_PROGRESSION = 5;
+}
+
+message Actor {
+  string player_id = 1; // Required.
+  string hero_id = 2; // Required; one hero per participant in this version.
+  optional string clan_id_at_occurrence = 3; // Absent means no clan at the fact time.
+}
+
+message DungeonRunStarted {
+  string dungeon_id = 1; // Required; identifies this run instance, not a dungeon template.
+  string game_session_id = 2; // Required.
+  optional uint32 initial_floor_number = 3; // Required; floors are numbered from 1.
+  repeated Actor participants = 4; // Required, nonempty, unique heroes.
+}
+
+message FloorEntered {
+  string dungeon_id = 1;
+  string game_session_id = 2;
+  optional uint32 from_floor_number = 3; // Required, >=1.
+  optional uint32 to_floor_number = 4; // Required, >=1 and different from from_floor_number.
+  repeated Actor participants = 5;
+  string transition_id = 6; // Required; new identity for each applied transition.
+}
+
+enum RunOutcome {
+  RUN_OUTCOME_UNSPECIFIED = 0;
+  RUN_OUTCOME_WON = 1;
+  RUN_OUTCOME_LOST = 2;
+  RUN_OUTCOME_ABANDONED = 3;
+}
+
+message DungeonRunEnded {
+  string dungeon_id = 1;
+  string game_session_id = 2;
+  RunOutcome outcome = 3;
+  optional uint32 final_floor_number = 4; // Required, >=1.
+  repeated Actor participants = 5;
+}
+
+enum MonsterRank {
+  MONSTER_RANK_UNSPECIFIED = 0;
+  MONSTER_RANK_NORMAL = 1;
+  MONSTER_RANK_MINI_BOSS = 2;
+  MONSTER_RANK_BOSS = 3;
+}
+
+message MonsterSnapshot {
+  string monster_instance_id = 1;
+  string monster_type_id = 2;
+  optional uint32 level = 3; // Required, >=1.
+  MonsterRank rank = 4;
+}
+
+message CombatStarted {
+  string combat_id = 1;
+  string dungeon_id = 2;
+  string game_session_id = 3;
+  string room_id = 4;
+  repeated Actor participants = 5;
+  repeated MonsterSnapshot monsters = 6; // Nonempty, unique instance IDs.
+}
+
+enum TargetResolution {
+  TARGET_RESOLUTION_UNSPECIFIED = 0;
+  TARGET_RESOLUTION_APPLIED = 1;
+  TARGET_RESOLUTION_DODGED = 2;
+}
+
+message SkillTarget {
+  oneof target {
+    string hero_id = 1;
+    string monster_instance_id = 2;
+  }
+  TargetResolution resolution = 3; // Actual execution result, including dodge.
+}
+
+message SkillUsed {
+  string combat_id = 1;
+  string command_id = 2;
+  Actor actor = 3;
+  string skill_id = 4;
+  optional uint32 turn_number = 5; // Required, >=1.
+  repeated SkillTarget targets = 6; // Nonempty; includes self for self-targeted skills.
+  optional uint64 mana_spent = 7; // Required; whole mana points actually spent, zero allowed.
+}
+
+enum CombatOutcome {
+  COMBAT_OUTCOME_UNSPECIFIED = 0;
+  COMBAT_OUTCOME_WON = 1;
+  COMBAT_OUTCOME_LOST = 2;
+}
+
+enum MonsterOutcome {
+  MONSTER_OUTCOME_UNSPECIFIED = 0;
+  MONSTER_OUTCOME_DEFEATED = 1;
+  MONSTER_OUTCOME_SURVIVED = 2;
+}
+
+message MonsterResult {
+  MonsterSnapshot monster = 1;
+  MonsterOutcome outcome = 2;
+}
+
+message CombatResult {
+  string combat_id = 1;
+  string dungeon_id = 2;
+  string game_session_id = 3;
+  CombatOutcome outcome = 4;
+  repeated Actor participants = 5;
+  repeated MonsterResult monster_results = 6; // Nonempty, unique monster instances.
+  google.protobuf.Timestamp started_at = 7;
+  optional uint32 turn_count = 8; // Required, >=0 (a terminal combat can have zero turns).
+  google.protobuf.Timestamp ended_at = 9; // Required; preserves terminal time in completed.
+}
+
+message CombatCompleted {
+  CombatResult result = 1; // Required; same combat as any corresponding combat-ended.
+  string dungeon_acceptance_id = 2; // Required for wins AND losses; persisted acceptance.
+  optional string rewards_confirmation_id = 3; // Required only on win, absent on loss.
+  // Published after Dungeon accepts; wins also await Rewards confirmation.
+  // It reports completion prerequisites, never awards XP. Not binary compatible
+  // with an existing external combat-completed contract without producer migration.
+}
+
+message ItemReference {
+  string item_definition_id = 1; // Required for all items.
+  optional string item_instance_id = 2; // Required for a unique item; absent for stackables.
+}
+
+message ConsumableUsed {
+  string combat_id = 1;
+  string command_id = 2;
+  Actor actor = 3;
+  ItemReference item = 4;
+  optional uint32 quantity = 5; // Required, >0; instanced items require 1.
+}
+
+message HeroCreated {
+  Actor actor = 1;
+  string hero_class_id = 2;
+}
+
+message ParticipantJoined {
+  string game_session_id = 1;
+  Actor actor = 2;
+  optional bool is_creator = 3; // Required; creator emits the first join as true.
+  // Persisted lobby entry, not a connection/reconnection or hero-selection snapshot.
+}
+
+enum ParticipantLeaveReason {
+  PARTICIPANT_LEAVE_REASON_UNSPECIFIED = 0;
+  PARTICIPANT_LEAVE_REASON_VOLUNTARY = 1;
+  PARTICIPANT_LEAVE_REASON_REMOVED = 2;
+  PARTICIPANT_LEAVE_REASON_SESSION_CLOSED = 3;
+}
+
+message ParticipantLeft {
+  string game_session_id = 1;
+  Actor actor = 2;
+  ParticipantLeaveReason reason = 3; // Persisted lobby departure, never a network disconnect.
+}
+
+enum RewardSourceType {
+  REWARD_SOURCE_TYPE_UNSPECIFIED = 0;
+  REWARD_SOURCE_TYPE_COMBAT = 1;
+  REWARD_SOURCE_TYPE_CHEST = 2;
+  REWARD_SOURCE_TYPE_DUNGEON_RUN = 3;
+  REWARD_SOURCE_TYPE_QUEST = 4;
+  REWARD_SOURCE_TYPE_SYSTEM_GRANT = 5;
+}
+
+message RewardSource {
+  RewardSourceType type = 1;
+  string source_id = 2; // Required; source instance or persisted system-grant identity.
+}
+
+message ItemGranted {
+  string reward_id = 1;
+  Actor actor = 2;
+  ItemReference item = 3;
+  optional uint32 quantity = 4; // Required, >0; instanced items require 1.
+  RewardSource source = 5;
+}
+
+enum EquipmentSlot {
+  EQUIPMENT_SLOT_UNSPECIFIED = 0;
+  EQUIPMENT_SLOT_HEAD = 1;
+  EQUIPMENT_SLOT_CHEST = 2;
+  EQUIPMENT_SLOT_HANDS = 3;
+  EQUIPMENT_SLOT_LEGS = 4;
+  EQUIPMENT_SLOT_FEET = 5;
+  EQUIPMENT_SLOT_MAIN_HAND = 6;
+  EQUIPMENT_SLOT_OFF_HAND = 7;
+  EQUIPMENT_SLOT_ACCESSORY = 8;
+}
+
+message ItemEquipped {
+  Actor actor = 1;
+  string item_instance_id = 2;
+  EquipmentSlot slot = 3;
+  optional string previous_item_instance_id = 4; // Absent if the slot was empty.
+}
+
+message GoldEarned {
+  string gold_transaction_id = 1; // Business credit identity; not envelope transaction_id.
+  Actor actor = 2; // Beneficiary/context; wallet owner is explicit below.
+  optional uint64 amount = 3; // Required, >0; whole gold units, no fractional currency.
+  RewardSource source = 4;
+  oneof wallet_owner { // Required; avoids assuming player-vs-hero ownership.
+    string player_wallet_id = 5;
+    string hero_wallet_id = 6;
+  }
+}
+
+message XpAwarded {
+  string xp_award_id = 1;
+  Actor actor = 2;
+  optional uint64 amount = 3; // Required, >0; whole XP units persisted.
+  optional uint64 total_xp_after = 4; // Required, >= amount.
+  RewardSource source = 5;
+}
+
+message LevelUp {
+  Actor actor = 1;
+  optional uint32 previous_level = 2; // Required, >=1.
+  optional uint32 new_level = 3; // Required, > previous_level; may cross multiple levels.
+  string xp_award_id = 4;
+}

@@ -1,0 +1,19 @@
+{
+  "envelopeVersion": 1,
+  "messageId": "00000000-0000-4000-8000-000000001018",
+  "transactionId": "00000000-0000-4000-8000-000000000900",
+  "producerSquad": "PRODUCER_SQUAD_PLAYER",
+  "eventType": "player.game-session-participant-left",
+  "eventVersion": 1,
+  "occurredAt": "2026-10-19T12:01:01Z",
+  "correlationId": "00000000-0000-4000-8000-000000000011",
+  "causationId": "00000000-0000-4000-8000-000000000800",
+  "participantLeft": {
+    "gameSessionId": "00000000-0000-4000-8000-000000000015",
+    "actor": {
+      "playerId": "00000000-0000-4000-8000-000000000004",
+      "heroId": "00000000-0000-4000-8000-000000000005"
+    },
+    "reason": "PARTICIPANT_LEAVE_REASON_VOLUNTARY"
+  }
+}

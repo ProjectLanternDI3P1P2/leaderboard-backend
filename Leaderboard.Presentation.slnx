@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="scripts/collection/Collection.Load.csproj" />
   <Project Path="Leaderboard.Contracts/Leaderboard.Contracts.csproj" />
   <Project Path="Leaderboard.Application/Leaderboard.Application.csproj" />
   <Project Path="Leaderboard.Domain/Leaderboard.Domain.csproj" />

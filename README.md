@@ -2,6 +2,10 @@
 
 **Démarrage local : [guide rapide en français](docs/demarrage-local.md).**
 
+**Collecte d'événements et contrats producteurs : [index collection](docs/collection/README.md).**
+
+**Variables RabbitMQ et MongoDB pour l'OPS : [exemples de configuration](docs/ops/README.md).**
+
 Deployment parameters and target service communications are documented in
 [deployment configuration](docs/deployment-configuration.md).
 
@@ -39,7 +43,10 @@ dotnet run --project Leaderboard.Presentation/Leaderboard.Presentation.csproj
 ## Dependencies
 
 All current dependencies restore from nuget.org. No GitHub token is required.
-The Combat contract, gRPC examples and example event publisher have been removed.
+The central collection contract is defined in `leaderboard.collection.v1`; it is
+independent of the legacy `leaderboard.events.v1`. See the five producer guides
+under [docs/collection](docs/collection/README.md). The format is available here;
+external squad adoption is not asserted.
 
 ## Running the stack
 
@@ -110,8 +117,10 @@ PostgreSQL port `5433`. The Compose API uses its own `postgres:5432` connection.
 
 ## Asynchronous messaging
 
-RabbitMQ runs in Compose. No application publisher or consumer is currently implemented.
-The RabbitMq configuration describes the target; see docs/US-COLLECTE-01-catalogue-evenements.md.
+The API uses PostgreSQL. RabbitMQ and MongoDB are also present in Compose for the
+collector. Collection configuration and OPS handoff are documented in
+[deployment configuration](docs/deployment-configuration.md) and
+[OPS notes](docs/ops/README.md).
 Run powershell -NoProfile -File scripts/Test-ContainerCommunication.ps1 to verify API persistence and an independent RabbitMQ round-trip.
 
 ## Branching flow
