@@ -17,11 +17,26 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  packages: read
 
 jobs:
   sonar:
     name: SonarQube Cloud scan
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: leaderboard_test
+          POSTGRES_USER: leaderboard
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U leaderboard -d leaderboard_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     # Dependabot pull requests are handed Dependabot's own secrets, never the Actions
     # ones, so SONAR_TOKEN would be empty and the scan would fail on every bump. Nothing
     # is lost: a dependency bump changes no C# line, so there is no new code to analyse,
@@ -49,7 +64,15 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
 
-      # dotnet-sonarscanner and dotnet-coverage are pinned in dotnet-tools.json, so CI
+      - name: Configure GitHub Packages
+        env:
+          NUGET_USERNAME: ${{ github.actor }}
+          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dotnet nuget remove source github || true
+          dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --name github --username "$NUGET_USERNAME" --password "$NUGET_AUTH_TOKEN" --store-password-in-clear-text
+
+      # dotnet-sonarscanner and dotnet-coverage are pinned in .config/dotnet-tools.json, so CI
       # and a developer's machine run the same versions.
       - name: Restore .NET tools
         run: dotnet tool restore
@@ -59,16 +82,17 @@ jobs:
       - name: Build, test and analyse
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          LEADERBOARD_TEST_DATABASE_CONNECTION: Host=localhost;Port=5432;Database=leaderboard_test;Username=leaderboard
         run: |
           dotnet dotnet-sonarscanner begin \
-            /k:"ProjectLanternDI3P1P2_dotnet-backend-template" \
+            /k:"ProjectLanternDI3P1P2_leaderboard-backend" \
             /o:"projectlanterndi3p1p2" \
             /d:sonar.token="$SONAR_TOKEN" \
             /d:sonar.host.url="https://sonarcloud.io" \
             /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
-          dotnet build Combat.Presentation.slnx --no-incremental
+          dotnet build Leaderboard.Presentation.slnx --no-incremental
           # Sonar does not read Cobertura for C#; dotnet-coverage's xml format is the
           # vscoveragexml one it expects.
-          dotnet dotnet-coverage collect "dotnet test --solution Combat.Presentation.slnx" \
+          dotnet dotnet-coverage collect "dotnet test --solution Leaderboard.Presentation.slnx" \
             -f xml -o coverage.xml
           dotnet dotnet-sonarscanner end /d:sonar.token="$SONAR_TOKEN"

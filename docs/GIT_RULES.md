@@ -65,7 +65,7 @@ Run once per clone: `dotnet tool restore` then `dotnet husky install`.
 
 | Hook | Does |
 | --- | --- |
-| `pre-commit` | `dotnet format whitespace` on staged `.cs` files, then re-stages them. |
+| `pre-commit` | `dotnet csharpier format` on staged `.cs` files, then re-stages them. |
 | `commit-msg` | Rejects a message that is not a Conventional Commit. |
 
 Hooks can be skipped with `--no-verify`. CI runs the same checks and cannot be.
@@ -74,7 +74,7 @@ Hooks can be skipped with `--no-verify`. CI runs the same checks and cannot be.
 
 | Check | Required |
 | --- | --- |
-| `Lint / dotnet format` | yes |
+| `Lint / CSharpier` | yes |
 | `Test / dotnet test` | yes |
 | `Build / dotnet build` | yes |
 | `Commitlint` | yes |

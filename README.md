@@ -1,5 +1,8 @@
 # .NET Backend Service Template
 
+Deployment parameters and target service communications are documented in
+[deployment configuration](docs/deployment-configuration.md).
+
 Starting point for a backend microservice: a .NET 10 Clean Architecture solution,
 the CI pipeline that guards it, and the branching flow that releases it.
 
@@ -10,12 +13,13 @@ and the decisions behind this repository's own shape in [docs/adr](./docs/adr).
 ## Structure
 
 ```text
-Combat.Domain/          entities, enums, domain services, repository interfaces
-Combat.Application/     commands, queries, handlers, validators, pipeline behaviours
-Combat.Infrastructure/  EF Core, repository implementations, external services
-Combat.Presentation/    HTTP API: controllers, DTOs, middleware
-Combat.Contracts/       owned Protobuf contracts and generated gRPC client/server types
-Combat.Test/            xUnit tests for all of the above
+Leaderboard.Domain/          entities, enums, domain services, repository interfaces
+Leaderboard.Application/     commands, queries, handlers, validators, pipeline behaviours
+Leaderboard.Infrastructure/  EF Core, repository implementations, external services
+Leaderboard.Presentation/    HTTP API: controllers, DTOs, middleware
+Combat.Contracts             external NuGet package for Combat gRPC contracts
+Leaderboard.Contracts        owned Protobuf contracts for Leaderboard events
+Leaderboard.Test/             xUnit tests for all of the above
 ```
 
 `Presentation` is the Clean Architecture layer name for the HTTP API. There is no
@@ -25,17 +29,34 @@ user interface.
 
 ```powershell
 dotnet tool restore
-dotnet restore Combat.Presentation.slnx
-dotnet build Combat.Presentation.slnx
-dotnet test --solution Combat.Presentation.slnx
-dotnet run --project Combat.Presentation/Combat.Presentation.csproj
+dotnet restore Leaderboard.Presentation.slnx
+dotnet build Leaderboard.Presentation.slnx
+dotnet test --solution Leaderboard.Presentation.slnx
+dotnet run --project Leaderboard.Presentation/Leaderboard.Presentation.csproj
 ```
+
+## Private NuGet packages
+
+`dotnet restore` and the production Dockerfile restore `Combat.Contracts` from
+GitHub Packages. Define these credentials in the current PowerShell session
+before `dotnet restore` or `dotnet run`:
+
+```powershell
+$env:NuGetPackageSourceCredentials_github = "Username=<github-login>;Password=<personal-access-token>;ValidAuthenticationTypes=Basic"
+```
+
+The token needs the `read:packages` scope. The `github` suffix matches the source
+name in `NuGet.config`; never commit the token or add it to a tracked `.env` file.
+
+`docker compose up --build` uses the `local-runtime` target instead: it packages
+`../combat-backend/Combat.Contracts` locally and needs neither this token nor a
+published package. The standard Dockerfile target remains the production path.
 
 ## Internal gRPC contract
 
 `Combat.Contracts` owns the versioned `combat_player_v1.proto` contract and the
-generated C# gRPC types. It is referenced locally by the server projects; it never
-pulls this service's Domain or Application types into the wire contract.
+generated C# gRPC types. Leaderboard consumes the released package from GitHub
+Packages; the contract source is maintained in the Combat microservice repository.
 
 The template exposes `CombatPlayerService/GetPlayer` on its internal gRPC endpoint.
 The REST API remains the client-facing interface. Locally, gRPC listens on
@@ -51,14 +72,10 @@ Handlers depend on the `Application/Ports/IPlayerClient` port and its applicatio
 model, never on Protobuf or gRPC types. The adapter uses the generated typed client,
 maps its response, and applies the configurable `Grpc:Player:TimeoutSeconds` deadline.
 
-`Combat.Contracts` has an independent release line. A change outside
-`Combat.Contracts/` never releases the package. When a contract release is made,
-release-please creates a `contracts-vN.0.0` tag and `publish-contracts.yaml`
-publishes the matching NuGet package to GitHub Packages. The contract number used
-by consumers is therefore V1, V2, V3, and so on; minor and patch contract package
-versions are deliberately never generated. A consuming repository configures its
-NuGet source as `https://nuget.pkg.github.com/<organisation>/index.json` and pins a
-released `Combat.Contracts` version.
+The Combat repository owns the independent release line. A consuming repository
+configures its NuGet source as
+`https://nuget.pkg.github.com/<organisation>/index.json` and pins a released
+`Combat.Contracts` version.
 
 The package page appears after the first release. To let a consuming repository's
 GitHub Actions workflow restore the package without a personal token, grant that
@@ -89,13 +106,14 @@ Apply the EF Core migrations before calling endpoints that persist data:
 
 ```powershell
 dotnet tool restore
-dotnet tool run dotnet-ef database update --project Combat.Infrastructure --startup-project Combat.Infrastructure
+dotnet tool run dotnet-ef database update --project Leaderboard.Infrastructure --startup-project Leaderboard.Infrastructure
 ```
 
 ## Toolchain
 
 The SDK version is pinned in `global.json`; `dotnet tool restore` installs the
-coverage collector, EF Core Tools, and the git-hook runner declared in `dotnet-tools.json`.
+coverage collector, EF Core Tools, CSharpier, and the git-hook runner declared in
+`.config/dotnet-tools.json`.
 Run `dotnet husky install` once per clone to enable the pre-commit hook — git
 hook paths are local configuration and cannot be committed.
 
@@ -106,7 +124,7 @@ PostgreSQL is configured through the `ConnectionStrings` section.
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=combat;Username=combat",
+    "DefaultConnection": "Host=localhost;Port=5432;Database=leaderboard;Username=leaderboard",
     "PasswordFile": "/run/secrets/postgres_password"
   }
 }
@@ -117,21 +135,19 @@ secret instead of storing it in the configuration file.
 
 ## Database migrations
 
-`Combat.Infrastructure` owns both the migrations and the design-time
-`CombatDbContextFactory`; it is used as both the target and startup project for
-EF Core Tools. This keeps `Combat.Presentation` free of the EF Core Design
-dependency. The factory loads the Presentation configuration from the repository
-root and lets `ConnectionStrings__DefaultConnection` override it.
+`Leaderboard.Infrastructure` owns both the migrations and the design-time
+`LeaderboardDbContextFactory`, including the EF Core Design dependency. The factory
+loads the Presentation configuration from the repository root and lets
+`ConnectionStrings__DefaultConnection` override it.
 
 ```powershell
 dotnet tool restore
-dotnet tool run dotnet-ef migrations add <MigrationName> --project Combat.Infrastructure --startup-project Combat.Infrastructure
-dotnet tool run dotnet-ef database update --project Combat.Infrastructure --startup-project Combat.Infrastructure
+dotnet tool run dotnet-ef migrations add <MigrationName> --project Leaderboard.Infrastructure --startup-project Leaderboard.Infrastructure
+dotnet tool run dotnet-ef database update --project Leaderboard.Infrastructure --startup-project Leaderboard.Infrastructure
 ```
 
-If you created the `Players` table manually while testing, start with a fresh
-local volume (`docker compose down -v`, then `docker compose up -d`) before the
-first `database update`; the initial migration must create that table itself.
+Development startup applies them before seeding. Production-like deployments must
+run migrations as a controlled rollout step, never by every application instance.
 
 For host-based development, `appsettings.Development.json` targets the Compose
 PostgreSQL port `5433`. The Compose API uses its own `postgres:5432` connection.
@@ -140,13 +156,12 @@ PostgreSQL port `5433`. The Compose API uses its own `postgres:5432` connection.
 
 `IMessagePublisher` is the application seam for integration messages; its
 `MessageEnvelope` contains no RabbitMQ type. `RabbitMqMessagePublisher` is the
-RabbitMQ adapter registered when `RabbitMq:Enabled` is true. It serializes the
-broker-independent Protobuf envelope from `combat_events_v1.proto`, declares the
-durable `combat.events` topic exchange, and publishes each event with the routing
-key `<type>.v<version>`.
+RabbitMQ adapter registered when `RabbitMq:Enabled` is true. Leaderboard event
+contracts are defined in `leaderboard_events_v1.proto`; the adapter declares the
+durable `leaderboard.events` topic exchange and publishes each event with the
+routing key `<type>.v<version>`.
 
-Creating a player publishes `combat.player.created.v1`, whose payload is the
-versioned `PlayerCreated` Protobuf message. In Compose, the adapter connects to
+Creating a player publishes the relevant versioned Leaderboard event. In Compose, the adapter connects to
 the `rabbitmq` service. For a local run without the broker, leave `Enabled` false;
 the no-op adapter keeps the application runnable while preserving the same
 application interface.
@@ -190,22 +205,25 @@ are in [docs/GIT_RULES.md](./docs/GIT_RULES.md).
 | `release-please.yaml` | push to `main` | Maintains the release pull request |
 | `back-merge.yaml` | after a release | Opens and merges `main` → `dev` |
 
-Formatting is enforced by `dotnet format --verify-no-changes --severity warn`,
-which reads `.editorconfig`. A lighter pass runs locally as a pre-commit hook
-through Husky.Net, alongside a `commit-msg` hook checking the Conventional Commits
-format. Run `dotnet tool restore` then `dotnet husky install` once per clone.
+Formatting is enforced by `dotnet csharpier check .`. CSharpier runs locally on
+staged C# files through Husky.Net, alongside a `commit-msg` hook checking the
+Conventional Commits format. Run `dotnet tool restore` then `dotnet husky install`
+once per clone.
 
-## Adding integration tests
+## Integration tests
 
-There are none yet, and `Combat.Test` holds unit tests only —
-`PlayerRepositoryTests` uses the EF Core in-memory provider, which is not a real
-database. Real integration tests would need a `WebApplicationFactory` for the
-HTTP surface and a containerised PostgreSQL for persistence.
+`Leaderboard.Test/Integration` contains runnable examples for both a REST controller
+and a gRPC service. They use `WebApplicationFactory`, PostgreSQL and Respawn.
+Start the database with `docker compose up -d postgres`, then run:
 
-Both are cross-cutting choices affecting all five services, so pick them as a
-shared decision and record an ADR before adding them here. Once they exist, give
-them their own job in `ci.yaml` so a slow suite does not gate the fast feedback
-from lint and unit tests.
+```powershell
+dotnet test --solution Leaderboard.Presentation.slnx --filter "FullyQualifiedName~Integration"
+```
+
+Each fixture creates and drops a unique database, then applies the service
+migrations. Set
+`LEADERBOARD_TEST_DATABASE_CONNECTION` to use another administrative PostgreSQL
+connection; it is never reset itself.
 
 ## Setting up a new repository from this template
 
@@ -222,7 +240,7 @@ from lint and unit tests.
    `GITHUB_TOKEN`: a pull request opened by the latter triggers no workflow, so
    the release pull request would never get a CI run.
 4. Set `dev` as the default branch and protect both `dev` and `main`. Required
-   checks: `Lint / dotnet format`, `Test / dotnet test`, `Build / dotnet build`,
+   checks: `Lint / CSharpier`, `Test / dotnet test`, `Build / dotnet build`,
    `Trivy Security Scan`, `GitHub Actions audit`, `Commitlint`. **Not** `SonarQube Cloud scan`:
    it is skipped on Dependabot pull requests, and a required check that never
    runs blocks them forever. Keep "require linear history" **off**, or the merge

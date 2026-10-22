@@ -1,7 +1,7 @@
-# Enforce formatting with EditorConfig and dotnet format
+# Enforce formatting with CSharpier
 
-Backend repositories define formatting rules in `.editorconfig` and verify them
-automatically with `dotnet format`.
+Backend repositories use CSharpier and verify formatting automatically in CI and
+before commits.
 
 ## Considered Options
 
@@ -12,7 +12,8 @@ adherence would produce unnecessary formatting differences and review noise.
 
 A machine-enforced formatter makes the repository configuration the single source
 of truth instead of relying on every contributor to reproduce the same local
-settings.
+settings. CSharpier deliberately has few configuration options, preventing style
+rules from becoming subjective policy.
 
 ## Consequences
 

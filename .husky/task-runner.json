@@ -2,21 +2,15 @@
    "$schema": "https://alirezanet.github.io/Husky.Net/schema.json",
    "tasks": [
       {
-         "name": "dotnet-format",
+         "name": "csharpier",
          "group": "pre-commit",
-         // whitespace + --folder on purpose: loading the solution through MSBuild is
-         // what costs ten seconds, and --include narrows which files get fixed, not
-         // what gets loaded. This pass runs in under two. The full analyzer sweep
-         // still happens in CI (.github/workflows/_lint.yaml), where the wait is free.
          "command": "dotnet",
          "args": [
+            "csharpier",
             "format",
-            "whitespace",
-            "--folder",
-            "--include",
             "${staged}"
          ],
-         "include": [ "**/*.cs" ]
+         "include": [ "**/*.cs", "**/*.csx", "**/*.csproj", "**/*.props", "**/*.targets", "**/*.xml", "**/*.config", "**/*.slnx", "**/*.xaml" ]
       },
       {
          // Without this the file is fixed on disk but the index keeps the old
@@ -25,7 +19,7 @@
          "group": "pre-commit",
          "command": "git",
          "args": [ "add", "${staged}" ],
-         "include": [ "**/*.cs" ]
+         "include": [ "**/*.cs", "**/*.csx", "**/*.csproj", "**/*.props", "**/*.targets", "**/*.xml", "**/*.config", "**/*.slnx", "**/*.xaml" ]
       }
    ]
 }

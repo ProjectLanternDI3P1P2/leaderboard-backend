@@ -10,14 +10,14 @@ Follow standard .NET naming conventions and the repository `.editorconfig`.
 
 | Element | Convention | Example |
 |---|---|---|
-| Namespace | PascalCase | `Combat.Application.Features.CreateCombat` |
-| Class | PascalCase | `CombatRepository` |
+| Namespace | PascalCase | `Leaderboard.Application.Features.CreateLeaderboard` |
+| Class | PascalCase | `LeaderboardRepository` |
 | Record | PascalCase | `CreateCombatCommand` |
-| Interface | `I` + PascalCase | `ICombatRepository` |
+| Interface | `I` + PascalCase | `ILeaderboardRepository` |
 | Method | PascalCase | `GetByIdAsync` |
-| Property | PascalCase | `CombatId` |
-| Private field | `_camelCase` | `_combatRepository` |
-| Parameter | camelCase | `combatId` |
+| Property | PascalCase | `LeaderboardId` |
+| Private field | `_camelCase` | `_leaderboardRepository` |
+| Parameter | camelCase | `leaderboardId` |
 | Local variable | camelCase | `activeCombat` |
 | Constant | PascalCase | `MaximumPartySize` |
 

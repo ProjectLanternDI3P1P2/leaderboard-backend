@@ -66,7 +66,7 @@ state, conflict and duplicate processing.
 # Database lifecycle
 
 Integration tests run against a dedicated test database.
-The schema must correspond to the service migrations.
+The test fixture applies the service migrations before tests run.
 Respawn resets application data between tests while keeping the schema available.
 Tests must not depend on execution order.
 
