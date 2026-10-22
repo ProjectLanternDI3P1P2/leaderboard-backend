@@ -5,6 +5,7 @@ using Leaderboard.Infrastructure.Persistence;
 using Leaderboard.Infrastructure.Persistence.Mongo;
 using Leaderboard.Infrastructure.PipelineBehavior;
 using Leaderboard.Infrastructure.Services;
+using Leaderboard.Infrastructure.Warehouse;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -33,6 +34,7 @@ public static class InfrastructureServiceRegistration
             .AddRepositories()
             .AddGrpcConfiguration(configuration)
             .AddMongoEventStore(configuration)
+            .AddWarehouse(configuration)
             .AddMessaging(configuration);
     }
 

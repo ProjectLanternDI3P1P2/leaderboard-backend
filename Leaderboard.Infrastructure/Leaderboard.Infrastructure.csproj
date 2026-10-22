@@ -35,6 +35,7 @@
   <ItemGroup>
     <PackageReference Include="Combat.Contracts" Version="2.0.0" />
     <ProjectReference Include="..\Leaderboard.Application\Leaderboard.Application.csproj" />
+    <ProjectReference Include="..\Leaderboard.Contracts\Leaderboard.Contracts.csproj" />
     <ProjectReference Include="..\Leaderboard.Domain\Leaderboard.Domain.csproj" />
   </ItemGroup>
 
