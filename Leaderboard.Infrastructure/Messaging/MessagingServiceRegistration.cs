@@ -18,6 +18,21 @@ public static class MessagingServiceRegistration
         Validate(options);
         services.AddSingleton(Options.Create(options));
 
+        RawEventConsumerOptions consumerOptions =
+            configuration
+                .GetSection(RawEventConsumerOptions.SectionName)
+                .Get<RawEventConsumerOptions>()
+            ?? new RawEventConsumerOptions();
+        ValidateConsumer(options, consumerOptions);
+        services.AddSingleton(Options.Create(consumerOptions));
+        if (consumerOptions.Enabled)
+        {
+            services
+                .AddSingleton<RawEventBatchWriter>()
+                .AddSingleton<RawEventBatchProcessor>()
+                .AddHostedService<RabbitMqRawEventConsumer>();
+        }
+
         return options.Enabled
             ? services.AddSingleton<IMessagePublisher, RabbitMqMessagePublisher>()
             : services.AddSingleton<IMessagePublisher, NoOpMessagePublisher>();
@@ -37,6 +52,34 @@ public static class MessagingServiceRegistration
         {
             throw new InvalidOperationException(
                 "RabbitMq:HostName and RabbitMq:ExchangeName are required."
+            );
+        }
+    }
+
+    private static void ValidateConsumer(RabbitMqOptions rabbitMq, RawEventConsumerOptions options)
+    {
+        if (!options.Enabled)
+        {
+            return;
+        }
+
+        if (!rabbitMq.Enabled)
+        {
+            throw new InvalidOperationException(
+                "RawEventConsumer:Enabled requires RabbitMq:Enabled."
+            );
+        }
+
+        if (
+            options.BatchSize is < 1 or > ushort.MaxValue
+            || options.MaxAttempts < 1
+            || string.IsNullOrWhiteSpace(options.QueueName)
+            || string.IsNullOrWhiteSpace(options.DeadLetterQueueName)
+            || options.SourceExchanges.Any(string.IsNullOrWhiteSpace)
+        )
+        {
+            throw new InvalidOperationException(
+                "RawEventConsumer: BatchSize, MaxAttempts and the queue names must be valid."
             );
         }
     }

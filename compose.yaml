@@ -17,6 +17,27 @@ services:
       timeout: 3s
       retries: 10
 
+  mongo:
+    image: mongo:7
+    # Majority writes need a replica set; a single member is enough locally.
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # Initiates the replica set on first run, then reports whether it is writable.
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "try { rs.status() } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]}) }; db.hello().isWritablePrimary || quit(1)"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
   api:
     build:
       context: .
@@ -24,6 +45,8 @@ services:
       secrets: [github_packages_credentials]
     depends_on:
       postgres:
+        condition: service_healthy
+      mongo:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
@@ -34,6 +57,14 @@ services:
       RabbitMq__HostName: rabbitmq
       RabbitMq__UserName: leaderboard
       RabbitMq__Password: leaderboard
+      ConnectionStrings__Mongo: "mongodb://mongo:27017/?replicaSet=rs0&directConnection=true"
+      RawEventConsumer__Enabled: "true"
+      # No provisioning job locally: bind the queue to the producer exchanges directly.
+      # On the platform these bindings belong to the broker, see SourceExchanges.
+      RawEventConsumer__SourceExchanges__0: player.events
+      RawEventConsumer__SourceExchanges__1: dungeon.events
+      RawEventConsumer__SourceExchanges__2: combat.events
+      RawEventConsumer__SourceExchanges__3: rewards.events
     ports:
       - "8080:8080"
       # Internal gRPC endpoint. Do not expose this port in production Kubernetes ingress.
@@ -55,6 +86,7 @@ services:
 
 volumes:
   postgres-data:
+  mongo-data:
 
 secrets:
   github_packages_credentials:
