@@ -9,6 +9,8 @@ public sealed class MongoTestDatabase : IAsyncDisposable
 {
     public const string CollectionName = "raw_events";
     private const string EnvironmentVariable = "LEADERBOARD_TEST_MONGO_CONNECTION";
+    private const string UserVariable = "LEADERBOARD_TEST_MONGO_USER";
+    private const string SecretVariable = "LEADERBOARD_TEST_MONGO_SECRET";
 
     private MongoTestDatabase(MongoClient client, string databaseName)
     {
@@ -26,7 +28,7 @@ public sealed class MongoTestDatabase : IAsyncDisposable
 
     public static async Task<MongoTestDatabase> CreateAsync(CancellationToken cancellationToken)
     {
-        var client = new MongoClient(ConnectionString);
+        var client = new MongoClient(CreateSettings());
         var database = new MongoTestDatabase(client, $"leaderboard_test_{Guid.NewGuid():N}");
         await RawEventCollectionInitializer.EnsureAsync(
             database.Database,
@@ -34,6 +36,23 @@ public sealed class MongoTestDatabase : IAsyncDisposable
             cancellationToken
         );
         return database;
+    }
+
+    /// <summary>
+    /// Credentials come from their own variables, set by CI when authentication is on,
+    /// so that no connection string carries a password.
+    /// </summary>
+    private static MongoClientSettings CreateSettings()
+    {
+        MongoClientSettings settings = MongoClientSettings.FromConnectionString(ConnectionString);
+        string? user = Environment.GetEnvironmentVariable(UserVariable);
+        string? secret = Environment.GetEnvironmentVariable(SecretVariable);
+        if (!string.IsNullOrEmpty(user) && !string.IsNullOrEmpty(secret))
+        {
+            settings.Credential = MongoCredential.CreateCredential("admin", user, secret);
+        }
+
+        return settings;
     }
 
     /// <summary>True when the server enforces authentication, so roles can be tested.</summary>
