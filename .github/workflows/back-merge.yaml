@@ -20,32 +20,16 @@ jobs:
     steps:
       # No checkout: everything here goes through the API, so no credential is ever
       # written to a working copy.
-      - name: Open and merge the back-merge pull request
+      - name: Merge main into dev
         env:
-          # BOT_TOKEN so the pull request triggers CI, same reason as in release-please.
+          # BOT_TOKEN: its account is the only bypass actor of the dev ruleset, so it can
+          # merge without a pull request or approvals. A pull request with --auto never
+          # merged on its own: auto-merge does not use the bypass and waits for approvals.
           GH_TOKEN: ${{ secrets.BOT_TOKEN }}
           REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: |
-          set -euo pipefail
-
-          ahead=$(gh api "repos/$REPO/compare/dev...main" --jq .ahead_by)
-          if [ "$ahead" -eq 0 ]; then
-            echo "dev already contains main — nothing to back-merge."
-            exit 0
-          fi
-
-          number=$(gh pr list -R "$REPO" --base dev --head main --state open \
-            --json number --jq '.[0].number // empty')
-
-          if [ -z "$number" ]; then
-            gh pr create -R "$REPO" --base dev --head main \
-              --title "chore: back-merge $TAG into dev" \
-              --body "Restores the changelog and version written on main by release-please."
-            number=$(gh pr list -R "$REPO" --base dev --head main --state open \
-              --json number --jq '.[0].number')
-          fi
-
-          # --merge, never --squash: dev and main must keep a shared history.
-          # --auto waits for the required checks instead of forcing past them.
-          gh pr merge -R "$REPO" "$number" --merge --auto
+          # 201 = merged, 204 = dev already contains main, 409 = conflict (job fails, resolve by hand).
+          # [skip ci]: the merge only brings the changelog and version back, nothing to rebuild.
+          gh api "repos/$REPO/merges" -f base=dev -f head=main \
+            -f commit_message="chore: back-merge $TAG into dev [skip ci]"
