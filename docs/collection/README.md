@@ -1,9 +1,10 @@
 # Contrat de collecte pour les squads productrices
 
-Ce dépôt définit le format central d'ingestion `leaderboard.collection.v1.GameEventEnvelope`; namespace C# généré : `Leaderboard.Contracts.Collection.V1`. Il est distinct du contrat `leaderboard.events.v1`, inchangé. Le format appartient à Leaderboard et est proposé pour intégration; adoption et implémentations productrices restent à confirmer.
+Ce dépôt définit le format commun d'ingestion `leaderboard.collection.v1.GameEventEnvelope`; namespace C# généré : `Leaderboard.Contracts.Collection.V1`. Il est distinct du contrat `leaderboard.events.v1`, inchangé. Leaderboard maintient ce format et sa validation dans le package NuGet `Leaderboard.Contracts`, que les cinq services .NET 10 doivent installer pour produire leurs événements. Leur intégration effective reste à vérifier dans leurs dépôts.
 
 ## Guides
 
+- [Package NuGet partagé](package-nuget.md) : installation, exemple producteur, validation et publication.
 - [Dungeon](dungeon.md), [Combat](combat.md), [Player](player.md), [Rewards](rewards.md), [Progression](progression.md) : déclencheurs, champs et fixtures.
 - [Contrat commun](contrat-commun.md): enveloppe, structures, champs et transport.
 - [Validation US-COLLECTE-01](validation-us-collecte-01.md): preuves techniques et acceptation.

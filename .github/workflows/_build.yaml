@@ -23,3 +23,7 @@ jobs:
       # should fail here rather than at packaging time.
       - name: Build solution
         run: dotnet build Leaderboard.Presentation.slnx --configuration Release
+
+      - name: Verify contracts package from a standalone consumer
+        shell: pwsh
+        run: ./scripts/contracts/verify-package.ps1 -OutputDirectory "$env:RUNNER_TEMP/contracts"

@@ -5,7 +5,7 @@ option csharp_namespace = "Leaderboard.Contracts.Collection.V1";
 
 import "google/protobuf/timestamp.proto";
 
-// Leaderboard-owned ingestion format, proposed for adoption by publishing squads.
+// Leaderboard-owned ingestion format shared with all five publishing squads.
 // This is a separate contract from leaderboard.events.v1.GameEventMessage.
 // All identifiers are nonempty lowercase GUID strings in canonical D format.
 // Required means required by GameEventContract.Validate, not by proto3 parsing.

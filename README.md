@@ -167,7 +167,7 @@ feature/xxx --merge commit--> dev --merge commit--> main --> tag + CHANGELOG
 - release-please then maintains independent release pull requests on `main` for
   the application and the Protocol Buffer contracts. Merging one writes its
   changelog, bumps only its version and tags it (`vX.Y.Z` for the application,
-  `contracts-vN.0.0` for contracts).
+  `leaderboard-contracts-vN.0.0` for contracts).
 - A back-merge from `main` to `dev` follows automatically
   ([ADR-0003](./docs/adr/0003-automatic-back-merge-from-main-to-dev.md)).
 
@@ -187,6 +187,7 @@ are in [docs/GIT_RULES.md](./docs/GIT_RULES.md).
 | `sonar.yaml` | PR and push to `dev`, except Dependabot | Builds and tests under the SonarScanner for .NET, uploads coverage |
 | `security.yml` | PR to `dev` / `main`, push to `main` | Trivy filesystem scan, zizmor workflow audit |
 | `release-please.yaml` | push to `main` | Maintains the release pull request |
+| `publish-contracts.yaml` | `leaderboard-contracts-v*` tags | Checks the package and publishes it to GitHub Packages |
 | `back-merge.yaml` | after a release | Opens and merges `main` → `dev` |
 
 Formatting is enforced by `dotnet csharpier check .`. CSharpier runs locally on
@@ -241,6 +242,8 @@ connection; it is never reset itself.
 
 Le format de référence est `leaderboard.collection.v1.GameEventEnvelope` :
 [contrat et fiches producteurs](docs/collection/README.md).
+Les cinq services .NET 10 utilisent le package partagé `Leaderboard.Contracts` :
+[installation et publication](docs/collection/package-nuget.md).
 Le consommateur et le stockage MongoDB proviennent de la PR #10 ; la projection
 PostgreSQL et sa reconstruction proviennent de la PR #14.
 Voir [décisions de fusion](docs/collection/integration-pr-10-14.md) et

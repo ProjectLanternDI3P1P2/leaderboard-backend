@@ -42,6 +42,19 @@ une pile Docker isolée. Les variables de connexion figurent dans
 Les scénarios de reprise couvrent un arrêt avant l'ACK, avec et sans insertion Mongo
 déjà effectuée. La redélivraison reste archivée ; la projection ne recompte pas l'événement.
 
+## Distribution NuGet — validation locale du 23 octobre 2026
+
+- Build de la solution en Release : 0 avertissement, 0 erreur.
+- Package construit avec README, deux fichiers `.proto`, DLL .NET 10 et lien au dépôt.
+- Dépendance exportée unique : Google.Protobuf ; aucun composant MongoDB/PostgreSQL/RabbitMQ.
+- Installation depuis le `.nupkg` dans un projet indépendant et un cache NuGet isolé réussie.
+- Exemple producteur, 42 fixtures (29 valides, 12 invalides, 1 illisible) et 16 routes vérifiés.
+- Tag historique/incohérent et répertoire de sortie déjà existant refusés avant publication.
+- CSharpier : 135 fichiers vérifiés. Audit zizmor 1.29.0 des workflows : aucun constat signalé.
+- Publication GitHub Packages et installation dans les cinq dépôts producteurs non exécutées.
+
+Voir [distribution du package](package-nuget.md) pour le circuit de release et les droits à configurer.
+
 ## Historique
 
 Les anciens résultats R3/R4 et les 88 tests de la collecte autonome concernent la

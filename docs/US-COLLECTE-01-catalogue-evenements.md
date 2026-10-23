@@ -1,6 +1,6 @@
 # US-COLLECTE-01 — catalogue d'événements
 
-Leaderboard définit le format central d'ingestion avant son intégration par les producteurs : [contrat et guides détaillés](collection/README.md). Le contrat protobuf `leaderboard.collection.v1` et ses fixtures sont présents dans ce dépôt. Ils ne constituent pas une preuve d'adoption par les squads externes ni de publication de packages producteurs.
+Leaderboard définit le format commun d'ingestion distribué aux cinq producteurs dans `Leaderboard.Contracts` : [contrat et guides détaillés](collection/README.md) et [package NuGet](collection/package-nuget.md). Le contrat protobuf `leaderboard.collection.v1` et ses fixtures sont présents dans ce dépôt. La publication du package et son adoption effective par les squads doivent être vérifiées séparément.
 
 Les cinq fiches couvrent les déclencheurs, champs, types, présence, bornes, unités, enums, routage et exemples : [Dungeon](collection/dungeon.md), [Combat](collection/combat.md), [Player](collection/player.md), [Rewards](collection/rewards.md), [Progression](collection/progression.md). Le manifeste des exemples est [ici](fixtures/us-collecte-01/manifest.json).
 
