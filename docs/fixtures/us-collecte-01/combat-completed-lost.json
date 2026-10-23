@@ -1,0 +1,54 @@
+{
+  "envelopeVersion": 1,
+  "messageId": "00000000-0000-4000-8000-000000001013",
+  "transactionId": "00000000-0000-4000-8000-000000000900",
+  "producerSquad": "PRODUCER_SQUAD_COMBAT",
+  "eventType": "combat.combat-completed",
+  "eventVersion": 1,
+  "occurredAt": "2026-10-19T12:01:01Z",
+  "correlationId": "00000000-0000-4000-8000-000000000011",
+  "causationId": "00000000-0000-4000-8000-000000000800",
+  "combatCompleted": {
+    "result": {
+      "combatId": "00000000-0000-4000-8000-000000000031",
+      "dungeonId": "00000000-0000-4000-8000-000000000010",
+      "gameSessionId": "00000000-0000-4000-8000-000000000011",
+      "outcome": "COMBAT_OUTCOME_LOST",
+      "participants": [
+        {
+          "playerId": "00000000-0000-4000-8000-000000000001",
+          "heroId": "00000000-0000-4000-8000-000000000002",
+          "clanIdAtOccurrence": "00000000-0000-4000-8000-000000000003"
+        },
+        {
+          "playerId": "00000000-0000-4000-8000-000000000004",
+          "heroId": "00000000-0000-4000-8000-000000000005"
+        }
+      ],
+      "monsterResults": [
+        {
+          "monster": {
+            "monsterInstanceId": "00000000-0000-4000-8000-000000000020",
+            "monsterTypeId": "00000000-0000-4000-8000-000000000021",
+            "level": 3,
+            "rank": "MONSTER_RANK_NORMAL"
+          },
+          "outcome": "MONSTER_OUTCOME_DEFEATED"
+        },
+        {
+          "monster": {
+            "monsterInstanceId": "00000000-0000-4000-8000-000000000022",
+            "monsterTypeId": "00000000-0000-4000-8000-000000000023",
+            "level": 7,
+            "rank": "MONSTER_RANK_BOSS"
+          },
+          "outcome": "MONSTER_OUTCOME_SURVIVED"
+        }
+      ],
+      "startedAt": "2026-10-19T12:00:00Z",
+      "turnCount": 4,
+      "endedAt": "2026-10-19T12:01:00Z"
+    },
+    "dungeonAcceptanceId": "00000000-0000-4000-8000-000000000062"
+  }
+}

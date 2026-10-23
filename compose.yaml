@@ -17,13 +17,35 @@ services:
       timeout: 3s
       retries: 10
 
+  mongo:
+    image: mongo:8.0
+    # Majority writes need a replica set; a single member is enough locally.
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # Initiates the replica set on first run, then reports whether it is writable.
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "try { rs.status() } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]}) }; db.hello().isWritablePrimary || quit(1)"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
   api:
     build:
       context: .
       dockerfile: Dockerfile
-      secrets: [github_packages_credentials]
     depends_on:
       postgres:
+        condition: service_healthy
+      mongo:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
@@ -34,10 +56,10 @@ services:
       RabbitMq__HostName: rabbitmq
       RabbitMq__UserName: leaderboard
       RabbitMq__Password: leaderboard
+      ConnectionStrings__Mongo: "mongodb://mongo:27017/?replicaSet=rs0&directConnection=true"
+      RawEventConsumer__Enabled: "true"
     ports:
       - "8080:8080"
-      # Internal gRPC endpoint. Do not expose this port in production Kubernetes ingress.
-      - "127.0.0.1:8081:8081"
 
   rabbitmq:
     image: rabbitmq:4-management-alpine
@@ -47,6 +69,8 @@ services:
     ports:
       - "127.0.0.1:5672:5672"
       - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s
@@ -55,7 +79,5 @@ services:
 
 volumes:
   postgres-data:
-
-secrets:
-  github_packages_credentials:
-    environment: GITHUB_PACKAGES_CREDENTIALS
+  mongo-data:
+  rabbitmq-data:

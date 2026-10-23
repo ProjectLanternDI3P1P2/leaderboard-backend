@@ -6,12 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Exceptions\**" />
-    <EmbeddedResource Remove="Exceptions\**" />
-    <None Remove="Exceptions\**" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Folder Include="Enums\" />
     <Folder Include="Services\" />
   </ItemGroup>

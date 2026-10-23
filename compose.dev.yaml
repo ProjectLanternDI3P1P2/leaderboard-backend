@@ -1,7 +1,0 @@
-services:
-  postgres:
-    extends: { file: compose.yaml, service: postgres }
-  rabbitmq:
-    extends: { file: compose.yaml, service: rabbitmq }
-volumes:
-  postgres-data:

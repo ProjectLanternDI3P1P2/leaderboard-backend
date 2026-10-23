@@ -1,4 +1,3 @@
-using Leaderboard.Application.Messaging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -18,9 +17,22 @@ public static class MessagingServiceRegistration
         Validate(options);
         services.AddSingleton(Options.Create(options));
 
-        return options.Enabled
-            ? services.AddSingleton<IMessagePublisher, RabbitMqMessagePublisher>()
-            : services.AddSingleton<IMessagePublisher, NoOpMessagePublisher>();
+        RawEventConsumerOptions consumerOptions =
+            configuration
+                .GetSection(RawEventConsumerOptions.SectionName)
+                .Get<RawEventConsumerOptions>()
+            ?? new RawEventConsumerOptions();
+        ValidateConsumer(options, consumerOptions);
+        services.AddSingleton(Options.Create(consumerOptions));
+        if (consumerOptions.Enabled)
+        {
+            services
+                .AddSingleton<RawEventBatchWriter>()
+                .AddSingleton<RawEventBatchProcessor>()
+                .AddHostedService<RabbitMqRawEventConsumer>();
+        }
+
+        return services;
     }
 
     private static void Validate(RabbitMqOptions options)
@@ -33,10 +45,45 @@ public static class MessagingServiceRegistration
         if (
             string.IsNullOrWhiteSpace(options.HostName)
             || string.IsNullOrWhiteSpace(options.ExchangeName)
+            || string.IsNullOrWhiteSpace(options.VirtualHost)
+            || string.IsNullOrWhiteSpace(options.UserName)
         )
         {
             throw new InvalidOperationException(
                 "RabbitMq:HostName and RabbitMq:ExchangeName are required."
+            );
+        }
+    }
+
+    private static void ValidateConsumer(RabbitMqOptions rabbitMq, RawEventConsumerOptions options)
+    {
+        if (!options.Enabled)
+        {
+            return;
+        }
+
+        if (!rabbitMq.Enabled)
+        {
+            throw new InvalidOperationException(
+                "RawEventConsumer:Enabled requires RabbitMq:Enabled."
+            );
+        }
+
+        if (
+            options.BatchSize is < 1 or > ushort.MaxValue
+            || options.MaxAttempts < 1
+            || string.IsNullOrWhiteSpace(options.QueueName)
+            || string.IsNullOrWhiteSpace(options.DeadLetterQueueName)
+            || options.QueueName == options.DeadLetterQueueName
+            || options.BatchTimeout <= TimeSpan.Zero
+            || options.InitialBackoff < TimeSpan.Zero
+            || options.ReconnectDelay <= TimeSpan.Zero
+            || string.IsNullOrWhiteSpace(options.BindingKey)
+            || options.SourceExchanges.Any(string.IsNullOrWhiteSpace)
+        )
+        {
+            throw new InvalidOperationException(
+                "RawEventConsumer: BatchSize, MaxAttempts and the queue names must be valid."
             );
         }
     }
