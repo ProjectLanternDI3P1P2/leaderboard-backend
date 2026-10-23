@@ -1,5 +1,11 @@
 # .NET Backend Service Template
 
+**Démarrage local : [guide rapide en français](docs/demarrage-local.md).**
+
+**Collecte d'événements et contrats producteurs : [index collection](docs/collection/README.md).**
+
+**Variables RabbitMQ et MongoDB pour l'OPS : [exemples de configuration](docs/ops/README.md).**
+
 Deployment parameters and target service communications are documented in
 [deployment configuration](docs/deployment-configuration.md).
 
@@ -7,7 +13,7 @@ Starting point for a backend microservice: a .NET 10 Clean Architecture solution
 the CI pipeline that guards it, and the branching flow that releases it.
 
 Vocabulary is defined in [CONTEXT.md](./CONTEXT.md). Shared technical choices are
-recorded in [BACKEND_TECHNICAL_DECISIONS.md](./BACKEND_TECHNICAL_DECISIONS.md),
+recorded in [BACKEND_TECHNICAL_DECISIONS.md](./docs/BACKEND_TECHNICAL_DECISIONS.md),
 and the decisions behind this repository's own shape in [docs/adr](./docs/adr).
 
 ## Structure
@@ -17,7 +23,6 @@ Leaderboard.Domain/          entities, enums, domain services, repository interf
 Leaderboard.Application/     commands, queries, handlers, validators, pipeline behaviours
 Leaderboard.Infrastructure/  EF Core, repository implementations, external services
 Leaderboard.Presentation/    HTTP API: controllers, DTOs, middleware
-Combat.Contracts             external NuGet package for Combat gRPC contracts
 Leaderboard.Contracts        owned Protobuf contracts for Leaderboard events
 Leaderboard.Test/             xUnit tests for all of the above
 ```
@@ -35,55 +40,13 @@ dotnet test --solution Leaderboard.Presentation.slnx
 dotnet run --project Leaderboard.Presentation/Leaderboard.Presentation.csproj
 ```
 
-## Private NuGet packages
+## Dependencies
 
-`dotnet restore` and the production Dockerfile restore `Combat.Contracts` from
-GitHub Packages. Define these credentials in the current PowerShell session
-before `dotnet restore` or `dotnet run`:
-
-```powershell
-$env:NuGetPackageSourceCredentials_github = "Username=<github-login>;Password=<personal-access-token>;ValidAuthenticationTypes=Basic"
-```
-
-The token needs the `read:packages` scope. The `github` suffix matches the source
-name in `NuGet.config`; never commit the token or add it to a tracked `.env` file.
-
-`docker compose up --build` uses the `local-runtime` target instead: it packages
-`../combat-backend/Combat.Contracts` locally and needs neither this token nor a
-published package. The standard Dockerfile target remains the production path.
-
-## Internal gRPC contract
-
-`Combat.Contracts` owns the versioned `combat_player_v1.proto` contract and the
-generated C# gRPC types. Leaderboard consumes the released package from GitHub
-Packages; the contract source is maintained in the Combat microservice repository.
-
-The template exposes `CombatPlayerService/GetPlayer` on its internal gRPC endpoint.
-The REST API remains the client-facing interface. Locally, gRPC listens on
-`http://localhost:8081`; Docker binds it only to loopback. In Kubernetes, expose
-that port through an internal-only Service, never through the ingress.
-
-Concrete gRPC service implementations in `Presentation/Grpc/Services` are mapped
-automatically at startup. A new service only needs to inherit from its generated
-contract base class; no additional `MapGrpcService<T>()` call is needed.
-
-`Infrastructure/Grpc/Clients/PlayerGrpcClient` shows the consumer-side pattern.
-Handlers depend on the `Application/Ports/IPlayerClient` port and its application
-model, never on Protobuf or gRPC types. The adapter uses the generated typed client,
-maps its response, and applies the configurable `Grpc:Player:TimeoutSeconds` deadline.
-
-The Combat repository owns the independent release line. A consuming repository
-configures its NuGet source as
-`https://nuget.pkg.github.com/<organisation>/index.json` and pins a released
-`Combat.Contracts` version.
-
-The package page appears after the first release. To let a consuming repository's
-GitHub Actions workflow restore the package without a personal token, grant that
-repository `Read` access under **Package settings > Manage Actions access**. Its
-workflow then needs `permissions: { packages: read }` and can authenticate its NuGet
-source with the automatically-provided `GITHUB_TOKEN`. Developers authenticate once
-on their own workstation with a personal access token (classic) scoped to
-`read:packages`; neither kind of token belongs in a repository.
+All current dependencies restore from nuget.org. No GitHub token is required.
+The central collection contract is defined in `leaderboard.collection.v1`; it is
+independent of the legacy `leaderboard.events.v1`. See the five producer guides
+under [docs/collection](docs/collection/README.md). The format is available here;
+external squad adoption is not asserted.
 
 ## Running the stack
 
@@ -92,7 +55,7 @@ docker compose up -d --build
 ```
 
 The API listens on <http://localhost:8080>, Postgres on host port 5433, and the
-RabbitMQ management UI on <http://localhost:15672> (`combat` / `combat`). Because
+RabbitMQ management UI on <http://localhost:15672> (`leaderboard` / `leaderboard`). Because
 `ASPNETCORE_ENVIRONMENT` is `Development`, the OpenAPI document is served at
 `/openapi/v1.json` and the Scalar UI at `/scalar`.
 
@@ -154,17 +117,38 @@ PostgreSQL port `5433`. The Compose API uses its own `postgres:5432` connection.
 
 ## Asynchronous messaging
 
-`IMessagePublisher` is the application seam for integration messages; its
-`MessageEnvelope` contains no RabbitMQ type. `RabbitMqMessagePublisher` is the
-RabbitMQ adapter registered when `RabbitMq:Enabled` is true. Leaderboard event
-contracts are defined in `leaderboard_events_v1.proto`; the adapter declares the
-durable `leaderboard.events` topic exchange and publishes each event with the
-routing key `<type>.v<version>`.
+The canonical ingestion contract is `leaderboard.collection.v1.GameEventEnvelope`,
+with 16 typed event routes documented in [the catalogue](docs/collection/README.md).
+The consumer and immutable MongoDB journal come from PR #10; the warehouse comes from PR #14.
+The complete AMQP body is archived before ACK, including invalid/unknown envelopes.
+See [integration decisions](docs/collection/integration-pr-10-14.md),
+[deployment configuration](docs/deployment-configuration.md) and [OPS notes](docs/ops/README.md).
 
-Creating a player publishes the relevant versioned Leaderboard event. In Compose, the adapter connects to
-the `rabbitmq` service. For a local run without the broker, leave `Enabled` false;
-the no-op adapter keeps the application runnable while preserving the same
-application interface.
+## Warehouse rebuild
+
+The warehouse (player statistics and league table) is recalculated from the raw
+event store; the design is in
+[ADR-0038](./docs/adr/0038-rebuild-the-warehouse-into-a-new-generation-from-the-raw-event-store.md).
+The rebuild endpoints require the `operator` role in the `X-Roles` header.
+
+| Endpoint | Does |
+| --- | --- |
+| `POST /api/v1/warehouse/rebuilds` | Requests a full rebuild (202, or 409 if one is pending or running) |
+| `POST /api/v1/warehouse/rebuilds/{id}/resume` | Resumes an interrupted or failed rebuild from its checkpoint |
+| `GET /api/v1/warehouse/rebuilds/{id}` | Report: status, events processed, applied, deduplicated, ignored, most recent one |
+| `GET /api/v1/players/{playerId}/statistics` | Statistics of a player, from the last consolidated generation |
+| `GET /api/v1/leaderboard?page=1&pageSize=20` | League table, from the last consolidated generation |
+
+```bash
+curl -X POST -H "X-Roles: operator" http://localhost:8080/api/v1/warehouse/rebuilds
+```
+
+The performance test seeds millions of events, so it only runs on demand:
+
+```powershell
+$env:LEADERBOARD_PERF_EVENT_COUNT = "5000000"
+dotnet test --solution Leaderboard.Presentation.slnx --filter-class "*WarehouseRebuildPerformanceTests"
+```
 
 ## Branching flow
 
@@ -183,7 +167,7 @@ feature/xxx --merge commit--> dev --merge commit--> main --> tag + CHANGELOG
 - release-please then maintains independent release pull requests on `main` for
   the application and the Protocol Buffer contracts. Merging one writes its
   changelog, bumps only its version and tags it (`vX.Y.Z` for the application,
-  `contracts-vN.0.0` for contracts).
+  `leaderboard-contracts-vN.0.0` for contracts).
 - A back-merge from `main` to `dev` follows automatically
   ([ADR-0003](./docs/adr/0003-automatic-back-merge-from-main-to-dev.md)).
 
@@ -203,6 +187,7 @@ are in [docs/GIT_RULES.md](./docs/GIT_RULES.md).
 | `sonar.yaml` | PR and push to `dev`, except Dependabot | Builds and tests under the SonarScanner for .NET, uploads coverage |
 | `security.yml` | PR to `dev` / `main`, push to `main` | Trivy filesystem scan, zizmor workflow audit |
 | `release-please.yaml` | push to `main` | Maintains the release pull request |
+| `publish-contracts.yaml` | `leaderboard-contracts-v*` tags | Checks the package and publishes it to GitHub Packages |
 | `back-merge.yaml` | after a release | Opens and merges `main` → `dev` |
 
 Formatting is enforced by `dotnet csharpier check .`. CSharpier runs locally on
@@ -212,8 +197,8 @@ once per clone.
 
 ## Integration tests
 
-`Leaderboard.Test/Integration` contains runnable examples for both a REST controller
-and a gRPC service. They use `WebApplicationFactory`, PostgreSQL and Respawn.
+`Leaderboard.Test/Integration` contains a runnable REST controller example
+using `WebApplicationFactory`, PostgreSQL and Respawn.
 Start the database with `docker compose up -d postgres`, then run:
 
 ```powershell
@@ -250,5 +235,16 @@ connection; it is never reset itself.
    bypass is needed. Disable squash and rebase merging in the repository
    settings too.
 6. Enable auto-merge on the repository; the back-merge workflow uses it.
-7. Rename the `Combat.*` projects to your service name, and update `/k:` and
+7. Rename the template projects to your service name, and update `/k:` and
    `/o:` in `.github/workflows/sonar.yaml`.
+
+## Contrats et intégration des événements
+
+Le format de référence est `leaderboard.collection.v1.GameEventEnvelope` :
+[contrat et fiches producteurs](docs/collection/README.md).
+Les cinq services .NET 10 utilisent le package partagé `Leaderboard.Contracts` :
+[installation et publication](docs/collection/package-nuget.md).
+Le consommateur et le stockage MongoDB proviennent de la PR #10 ; la projection
+PostgreSQL et sa reconstruction proviennent de la PR #14.
+Voir [décisions de fusion](docs/collection/integration-pr-10-14.md) et
+[configuration](docs/deployment-configuration.md).

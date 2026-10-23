@@ -1,0 +1,516 @@
+{
+  "status": "proposed",
+  "contract": "leaderboard.collection.v1.GameEventEnvelope",
+  "envelopeVersion": 1,
+  "eventVersion": 1,
+  "producerAdoption": "not-asserted",
+  "binaryGeneration": "GameEventEnvelope.Parser.ParseJson(json).ToByteArray() using this repository generated types",
+  "rawHandling": "Preserve the complete original AMQP body without reserialization, including invalid or unknown messages. Parse status is metadata only. If normal archival cannot accept a body, use durable quarantine before acknowledging.",
+  "publication": "Persist business change and serialized event in the same local transaction/outbox. Publish after commit with broker confirms and unroutable handling. Retry the same bytes and messageId; transactionId may be shared by distinct events.",
+  "excludedFacts": [
+    "Rejected skill commands emit no skill-used event.",
+    "Connection loss/reconnection emits no lobby leave/join fact.",
+    "Hero selection, equipment removal, gold spending and chest opening are deferred extensions."
+  ],
+  "fixtures": [
+    {
+      "id": "run-started",
+      "status": "proposed",
+      "description": "Run actually started, creator and second hero present.",
+      "file": "run-started.json",
+      "routingKey": "dungeon.dungeon-run-started.v1",
+      "expected": "valid",
+      "tags": [
+        "run-start",
+        "participants"
+      ]
+    },
+    {
+      "id": "floor-first",
+      "status": "proposed",
+      "description": "First applied transition from floor 1 to floor 2.",
+      "file": "floor-first.json",
+      "routingKey": "dungeon.floor-entered.v1",
+      "expected": "valid",
+      "tags": [
+        "floor-transition"
+      ]
+    },
+    {
+      "id": "floor-repeat",
+      "status": "proposed",
+      "description": "Another legitimate 1 to 2 transition after returning to floor 1; distinct fact and transition.",
+      "file": "floor-repeat.json",
+      "routingKey": "dungeon.floor-entered.v1",
+      "expected": "valid",
+      "tags": [
+        "floor-transition"
+      ]
+    },
+    {
+      "id": "run-ended-won",
+      "status": "proposed",
+      "description": "Terminal persisted run victory.",
+      "file": "run-ended-won.json",
+      "routingKey": "dungeon.dungeon-run-ended.v1",
+      "expected": "valid",
+      "tags": []
+    },
+    {
+      "id": "run-ended-lost",
+      "status": "proposed",
+      "description": "Terminal persisted run loss.",
+      "file": "run-ended-lost.json",
+      "routingKey": "dungeon.dungeon-run-ended.v1",
+      "expected": "valid",
+      "tags": []
+    },
+    {
+      "id": "run-ended-abandoned",
+      "status": "proposed",
+      "description": "Terminal persisted group abandonment.",
+      "file": "run-ended-abandoned.json",
+      "routingKey": "dungeon.dungeon-run-ended.v1",
+      "expected": "valid",
+      "tags": []
+    },
+    {
+      "id": "combat-started",
+      "status": "proposed",
+      "description": "Persisted combat snapshots include normal monster and boss.",
+      "file": "combat-started.json",
+      "routingKey": "combat.combat-started.v1",
+      "expected": "valid",
+      "tags": [
+        "normal-monster",
+        "boss"
+      ]
+    },
+    {
+      "id": "skill-positive",
+      "status": "proposed",
+      "description": "Executed skill spending five whole mana points.",
+      "file": "skill-positive.json",
+      "routingKey": "combat.skill-used.v1",
+      "expected": "valid",
+      "tags": [
+        "positive-mana"
+      ]
+    },
+    {
+      "id": "skill-zero",
+      "status": "proposed",
+      "description": "Executed skill explicitly spending zero mana.",
+      "file": "skill-zero.json",
+      "routingKey": "combat.skill-used.v1",
+      "expected": "valid",
+      "tags": [
+        "zero-mana"
+      ]
+    },
+    {
+      "id": "skill-dodged",
+      "status": "proposed",
+      "description": "Executed and dodged skill remains a usage with actual mana expenditure.",
+      "file": "skill-dodged.json",
+      "routingKey": "combat.skill-used.v1",
+      "expected": "valid",
+      "tags": [
+        "dodged"
+      ]
+    },
+    {
+      "id": "combat-ended-won",
+      "status": "proposed",
+      "description": "Analytical terminal combat win, independent of completion confirmation.",
+      "file": "combat-ended-won.json",
+      "routingKey": "combat.combat-ended.v1",
+      "expected": "valid",
+      "tags": [
+        "combat-win"
+      ]
+    },
+    {
+      "id": "combat-completed-won",
+      "status": "proposed",
+      "description": "Proposed ingestion equivalent: win accepted by Dungeon and confirmed by Rewards; not a legacy binary fixture.",
+      "file": "combat-completed-won.json",
+      "routingKey": "combat.combat-completed.v1",
+      "expected": "valid",
+      "tags": [
+        "completion-win"
+      ]
+    },
+    {
+      "id": "combat-ended-lost",
+      "status": "proposed",
+      "description": "Persisted defeat is collectable even without rewards.",
+      "file": "combat-ended-lost.json",
+      "routingKey": "combat.combat-ended.v1",
+      "expected": "valid",
+      "tags": [
+        "combat-loss"
+      ]
+    },
+    {
+      "id": "combat-completed-lost",
+      "status": "proposed",
+      "description": "Defeat accepted by Dungeon, without any Rewards confirmation.",
+      "file": "combat-completed-lost.json",
+      "routingKey": "combat.combat-completed.v1",
+      "expected": "valid",
+      "tags": [
+        "completion-loss"
+      ]
+    },
+    {
+      "id": "consumable-used",
+      "status": "proposed",
+      "description": "Stackable consumable actually applied to the combat snapshot.",
+      "file": "consumable-used.json",
+      "routingKey": "combat.consumable-used.v1",
+      "expected": "valid",
+      "tags": []
+    },
+    {
+      "id": "hero-created",
+      "status": "proposed",
+      "description": "Persisted hero creation.",
+      "file": "hero-created.json",
+      "routingKey": "player.hero-created.v1",
+      "expected": "valid",
+      "tags": []
+    },
+    {
+      "id": "participant-creator",
+      "status": "proposed",
+      "description": "Creator is the first persisted participant.",
+      "file": "participant-creator.json",
+      "routingKey": "player.game-session-participant-joined.v1",
+      "expected": "valid",
+      "tags": [
+        "creator",
+        "same-transaction"
+      ]
+    },
+    {
+      "id": "participant-second",
+      "status": "proposed",
+      "description": "Second persisted participant; distinct hero, no clan at occurrence.",
+      "file": "participant-second.json",
+      "routingKey": "player.game-session-participant-joined.v1",
+      "expected": "valid",
+      "tags": [
+        "second-player",
+        "same-transaction"
+      ]
+    },
+    {
+      "id": "participant-left",
+      "status": "proposed",
+      "description": "Persisted departure from a separate lobby, not a disconnect during a locked run.",
+      "file": "participant-left.json",
+      "routingKey": "player.game-session-participant-left.v1",
+      "expected": "valid",
+      "tags": []
+    },
+    {
+      "id": "item-stackable",
+      "status": "proposed",
+      "description": "Three stackable items credited, without item instance ID.",
+      "file": "item-stackable.json",
+      "routingKey": "rewards.item-granted.v1",
+      "expected": "valid",
+      "tags": [
+        "stackable"
+      ]
+    },
+    {
+      "id": "item-instanced",
+      "status": "proposed",
+      "description": "One individually identified item credited.",
+      "file": "item-instanced.json",
+      "routingKey": "rewards.item-granted.v1",
+      "expected": "valid",
+      "tags": [
+        "instanced"
+      ]
+    },
+    {
+      "id": "item-equipped",
+      "status": "proposed",
+      "description": "Persisted equipment replacement.",
+      "file": "item-equipped.json",
+      "routingKey": "rewards.item-equipped.v1",
+      "expected": "valid",
+      "tags": []
+    },
+    {
+      "id": "item-equipped-empty-slot",
+      "status": "proposed",
+      "description": "Persisted equipment in a previously empty slot.",
+      "file": "item-equipped-empty-slot.json",
+      "routingKey": "rewards.item-equipped.v1",
+      "expected": "valid",
+      "tags": []
+    },
+    {
+      "id": "gold-player-wallet",
+      "status": "proposed",
+      "description": "Whole gold units durably credited to an explicit player wallet.",
+      "file": "gold-player-wallet.json",
+      "routingKey": "rewards.gold-earned.v1",
+      "expected": "valid",
+      "tags": []
+    },
+    {
+      "id": "gold-hero-wallet",
+      "status": "proposed",
+      "description": "Whole gold units durably credited to an explicit hero wallet.",
+      "file": "gold-hero-wallet.json",
+      "routingKey": "rewards.gold-earned.v1",
+      "expected": "valid",
+      "tags": []
+    },
+    {
+      "id": "xp-awarded",
+      "status": "proposed",
+      "description": "XP already persisted; receiving this event does not award XP.",
+      "file": "xp-awarded.json",
+      "routingKey": "progression.xp-awarded.v1",
+      "expected": "valid",
+      "tags": []
+    },
+    {
+      "id": "level-up",
+      "status": "proposed",
+      "description": "One persisted XP award crosses multiple levels.",
+      "file": "level-up.json",
+      "routingKey": "progression.level-up.v1",
+      "expected": "valid",
+      "tags": [
+        "multiple-levels"
+      ]
+    },
+    {
+      "id": "clan-later",
+      "status": "proposed",
+      "description": "Later event in a separate combat (combatId ending 032, monster instance ending 024) captures the new clan without rewriting older actor snapshots; it is independent of combat 030, which ended at 12:01:00Z.",
+      "file": "clan-later.json",
+      "routingKey": "combat.skill-used.v1",
+      "expected": "valid",
+      "tags": [
+        "clan-change"
+      ]
+    },
+    {
+      "id": "historical",
+      "status": "proposed",
+      "description": "A fact occurring a year before its illustrative receipt.",
+      "file": "historical.json",
+      "routingKey": "player.hero-created.v1",
+      "expected": "valid",
+      "tags": [
+        "historical"
+      ]
+    },
+    {
+      "id": "unknown-version",
+      "status": "proposed",
+      "description": "Future payload version: preserve raw body, classify unsupported.",
+      "file": "unknown-version.json",
+      "routingKey": "player.hero-created.v1",
+      "expected": "invalid",
+      "tags": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "unknown-envelope-version",
+      "status": "proposed",
+      "description": "Future envelope version is unsupported.",
+      "file": "unknown-envelope-version.json",
+      "routingKey": "player.hero-created.v1",
+      "expected": "invalid",
+      "tags": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "unknown-event-type",
+      "status": "proposed",
+      "description": "Unknown event kind: retain original bytes, no silent loss.",
+      "file": "unknown-event-type.json",
+      "routingKey": "player.hero-created.v1",
+      "expected": "invalid",
+      "tags": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "missing-mana",
+      "status": "proposed",
+      "description": "Absent mana is different from an explicit zero.",
+      "file": "missing-mana.json",
+      "routingKey": "combat.skill-used.v1",
+      "expected": "invalid",
+      "tags": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "missing-creator-flag",
+      "status": "proposed",
+      "description": "Absent creator flag is different from false.",
+      "file": "missing-creator-flag.json",
+      "routingKey": "player.game-session-participant-joined.v1",
+      "expected": "invalid",
+      "tags": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "wrong-squad",
+      "status": "proposed",
+      "description": "An event must match its owning squad.",
+      "file": "wrong-squad.json",
+      "routingKey": "player.hero-created.v1",
+      "expected": "invalid",
+      "tags": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "missing-message-id",
+      "status": "proposed",
+      "description": "Stable message identity is required.",
+      "file": "missing-message-id.json",
+      "routingKey": "player.hero-created.v1",
+      "expected": "invalid",
+      "tags": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "wrong-payload",
+      "status": "proposed",
+      "description": "Event type and selected payload disagree.",
+      "file": "wrong-payload.json",
+      "routingKey": "player.hero-created.v1",
+      "expected": "invalid",
+      "tags": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "empty-participants",
+      "status": "proposed",
+      "description": "Collective events cannot hide participating heroes.",
+      "file": "empty-participants.json",
+      "routingKey": "dungeon.dungeon-run-started.v1",
+      "expected": "invalid",
+      "tags": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "instanced-quantity",
+      "status": "proposed",
+      "description": "An identified unique item cannot have quantity two.",
+      "file": "instanced-quantity.json",
+      "routingKey": "rewards.item-granted.v1",
+      "expected": "invalid",
+      "tags": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "win-without-rewards",
+      "status": "proposed",
+      "description": "Completed win requires Rewards confirmation.",
+      "file": "win-without-rewards.json",
+      "routingKey": "combat.combat-completed.v1",
+      "expected": "invalid",
+      "tags": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "loss-with-rewards",
+      "status": "proposed",
+      "description": "Completed loss must not require or announce Rewards confirmation.",
+      "file": "loss-with-rewards.json",
+      "routingKey": "combat.combat-completed.v1",
+      "expected": "invalid",
+      "tags": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "unreadable",
+      "status": "proposed",
+      "description": "Truncated varint; preserve original body in durable raw storage/quarantine, never silently discard.",
+      "bodyBase64": "gA==",
+      "expected": "unreadable",
+      "tags": [
+        "invalid"
+      ]
+    }
+  ],
+  "deliveryScenarios": [
+    {
+      "id": "same-transaction",
+      "expected": "Two distinct submissions must remain independently conservable.",
+      "deliveries": [
+        {
+          "fixture": "participant-creator",
+          "receiptId": "00000000-0000-4000-8000-000000002001",
+          "receivedAt": "2026-10-20T12:00:00Z"
+        },
+        {
+          "fixture": "participant-second",
+          "receiptId": "00000000-0000-4000-8000-000000002002",
+          "receivedAt": "2026-10-20T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "redelivery",
+      "expected": "Same serialized message delivered twice, two illustrative receipt identities.",
+      "deliveries": [
+        {
+          "fixture": "skill-zero",
+          "receiptId": "00000000-0000-4000-8000-000000002003",
+          "receivedAt": "2026-10-20T12:01:00Z"
+        },
+        {
+          "fixture": "skill-zero",
+          "receiptId": "00000000-0000-4000-8000-000000002004",
+          "receivedAt": "2026-10-20T12:01:01Z"
+        }
+      ]
+    },
+    {
+      "id": "historical-recent-receipt",
+      "expected": "Old occurrence with recent reception; receipt metadata is collector-owned and outside the producer envelope.",
+      "deliveries": [
+        {
+          "fixture": "historical",
+          "receiptId": "00000000-0000-4000-8000-000000002005",
+          "receivedAt": "2026-10-20T12:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "historical-receipt",
+      "expected": "Illustrative reception itself over a year old; no retention/purge implementation is proven.",
+      "deliveries": [
+        {
+          "fixture": "historical",
+          "receiptId": "00000000-0000-4000-8000-000000002006",
+          "receivedAt": "2025-10-19T12:00:01Z"
+        }
+      ]
+    }
+  ]
+}

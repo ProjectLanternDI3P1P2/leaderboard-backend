@@ -1,0 +1,28 @@
+{
+  "envelopeVersion": 1,
+  "messageId": "00000000-0000-4000-8000-000000001005",
+  "transactionId": "00000000-0000-4000-8000-000000000900",
+  "producerSquad": "PRODUCER_SQUAD_DUNGEON",
+  "eventType": "dungeon.dungeon-run-ended",
+  "eventVersion": 1,
+  "occurredAt": "2026-10-19T12:01:01Z",
+  "correlationId": "00000000-0000-4000-8000-000000000011",
+  "causationId": "00000000-0000-4000-8000-000000000800",
+  "dungeonRunEnded": {
+    "dungeonId": "00000000-0000-4000-8000-000000000013",
+    "gameSessionId": "00000000-0000-4000-8000-000000000011",
+    "outcome": "RUN_OUTCOME_ABANDONED",
+    "finalFloorNumber": 1,
+    "participants": [
+      {
+        "playerId": "00000000-0000-4000-8000-000000000001",
+        "heroId": "00000000-0000-4000-8000-000000000002",
+        "clanIdAtOccurrence": "00000000-0000-4000-8000-000000000003"
+      },
+      {
+        "playerId": "00000000-0000-4000-8000-000000000004",
+        "heroId": "00000000-0000-4000-8000-000000000005"
+      }
+    ]
+  }
+}

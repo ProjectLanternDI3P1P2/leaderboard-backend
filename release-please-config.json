@@ -12,7 +12,7 @@
     },
     "Leaderboard.Contracts": {
       "package-name": "Leaderboard.Contracts",
-      "component": "contracts",
+      "component": "leaderboard-contracts",
       "include-component-in-tag": true,
       "versioning": "always-bump-major",
       "changelog-path": "CHANGELOG.md",
