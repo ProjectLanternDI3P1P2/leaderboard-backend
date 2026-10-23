@@ -66,6 +66,17 @@ expirent après 7 jours. La DLQ conserve les messages sans expiration automatiqu
 Keycloak est validé à la gateway (ADR-GLOB-004), pas dans ce service :
 aucune variable de validation JWT ou de client secret n'est injectée ici.
 
+## Reconstruction du Warehouse
+
+Voir ADR-0038. Un worker de chaque instance exécute les reconstructions en attente.
+
+- `Warehouse__OperatorRole=operator` : rôle global exigé dans `X-Roles`.
+- `Warehouse__Rebuild__BatchSize=5000` : événements par transaction et par checkpoint.
+- `Warehouse__Rebuild__IsWorkerEnabled=true` : à `false`, aucune reconstruction ne s'exécute.
+- `Warehouse__Rebuild__PollingInterval=00:00:02` : délai entre deux recherches d'une reconstruction en attente.
+- `Warehouse__Rebuild__HeartbeatTimeout=00:02:00` : au-delà, une reconstruction sans
+  battement est marquée interrompue et peut être reprise.
+
 ## Image et contrats privés
 
 Le Dockerfile expose 8080 et 8081 en interne ; Compose ne les publie pas sur l'hôte.

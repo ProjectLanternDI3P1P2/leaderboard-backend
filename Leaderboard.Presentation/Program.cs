@@ -1,5 +1,6 @@
 using Leaderboard.Application;
 using Leaderboard.Infrastructure;
+using Leaderboard.Infrastructure.Persistence.Mongo;
 using Leaderboard.Infrastructure.Persistence;
 using Leaderboard.Infrastructure.Persistence.Seeding;
 using Leaderboard.Presentation.Extensions;
@@ -39,6 +40,7 @@ if (migrateOnly)
 if (app.Environment.IsDevelopment())
 {
     await app.Services.MigrateAndSeedDevelopmentDataAsync();
+    await app.Services.EnsureDevelopmentRawEventCollectionAsync();
 }
 
 app.ConfigureStart();

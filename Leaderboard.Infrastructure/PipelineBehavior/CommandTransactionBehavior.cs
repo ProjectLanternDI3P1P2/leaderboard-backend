@@ -17,7 +17,7 @@ public sealed class CommandTransactionBehavior<TRequest, TResponse>(LeaderboardD
     {
         ArgumentNullException.ThrowIfNull(next);
 
-        if (request is not ICommand)
+        if (request is not ITransactionalRequest)
         {
             return await next(cancellationToken);
         }

@@ -166,6 +166,32 @@ the `rabbitmq` service. For a local run without the broker, leave `Enabled` fals
 the no-op adapter keeps the application runnable while preserving the same
 application interface.
 
+## Warehouse rebuild
+
+The warehouse (player statistics and league table) is recalculated from the raw
+event store; the design is in
+[ADR-0038](./docs/adr/0038-rebuild-the-warehouse-into-a-new-generation-from-the-raw-event-store.md).
+The rebuild endpoints require the `operator` role in the `X-Roles` header.
+
+| Endpoint | Does |
+| --- | --- |
+| `POST /api/v1/warehouse/rebuilds` | Requests a full rebuild (202, or 409 if one is pending or running) |
+| `POST /api/v1/warehouse/rebuilds/{id}/resume` | Resumes an interrupted or failed rebuild from its checkpoint |
+| `GET /api/v1/warehouse/rebuilds/{id}` | Report: status, events processed, applied, deduplicated, ignored, most recent one |
+| `GET /api/v1/players/{playerId}/statistics` | Statistics of a player, from the last consolidated generation |
+| `GET /api/v1/leaderboard?page=1&pageSize=20` | League table, from the last consolidated generation |
+
+```bash
+curl -X POST -H "X-Roles: operator" http://localhost:8080/api/v1/warehouse/rebuilds
+```
+
+The performance test seeds millions of events, so it only runs on demand:
+
+```powershell
+$env:LEADERBOARD_PERF_EVENT_COUNT = "5000000"
+dotnet test --solution Leaderboard.Presentation.slnx --filter-class "*WarehouseRebuildPerformanceTests"
+```
+
 ## Branching flow
 
 ```text

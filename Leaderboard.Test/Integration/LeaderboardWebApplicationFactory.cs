@@ -21,6 +21,8 @@ public sealed class LeaderboardWebApplicationFactory(string connectionString)
                 {
                     ["ConnectionStrings:DefaultConnection"] = connectionString,
                     ["RabbitMq:Enabled"] = "false",
+                    // Endpoint tests drive rebuilds themselves; no background worker.
+                    ["Warehouse:Rebuild:IsWorkerEnabled"] = "false",
                 }
             )
         );
