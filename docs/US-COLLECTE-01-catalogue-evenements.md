@@ -6,12 +6,16 @@ Les cinq fiches couvrent les déclencheurs, champs, types, présence, bornes, un
 
 La collecte stocke le corps brut append-only dans MongoDB, y compris les doublons, puis ACK après insertion durable. Elle n'attribue pas d'XP et ne calcule pas les classements. Les exigences de publication fiable et de traitement figurent dans le [guide de validation](collection/validation-us-collecte-01.md).
 
-## État
+## État et responsabilités
 
-- Format central, schéma, exemples et implémentation de réception MongoDB disponibles dans ce dépôt.
-- Vérifications techniques : revue indépendante acceptée; 67 fichiers formatés; build Release sans avertissement ni erreur; 88 tests réussis, aucun échec ni ignoré; construction de l'image API réussie. Les commandes et limites sont consignées dans le plan de suivi. Cela ne prouve pas une exécution CI distante.
-- AC4 charge réelle stricte (50/s pendant 600 s, p95 final <= premier et pente <=0) non validée. R3 a échoué à la ponctualité de publication (retard max 2592.7408 ms); R4 a été arrêté avant 600 s à la demande de l'utilisateur. Voir [notes du banc](../scripts/collection/README.md). Aucun résultat final R4 n'existe.
-- L'adoption et la validation par les squads productrices restent à obtenir, sans bloquer la disponibilité de la définition centrale.
+Le périmètre de l'US est le contrat des 16 événements : schéma, validation, exemples
+et documentation des squads. La réception et MongoDB sont fournis par la PR #10 ;
+la projection PostgreSQL et sa reconstruction par la PR #14.
+Voir [décisions de fusion](collection/integration-pr-10-14.md) et
+[bilan de validation courant](collection/validation-us-collecte-01.md).
+L'adoption et la validation par les producteurs restent externes à ce dépôt.
+Les anciens essais de charge concernent une implémentation remplacée et ne valident
+pas les performances de la chaîne fusionnée.
 
 ## Décisions de portée
 

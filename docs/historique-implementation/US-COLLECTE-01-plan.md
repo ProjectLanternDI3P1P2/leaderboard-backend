@@ -1,4 +1,9 @@
-# US-COLLECTE-01 — suivi de livraison
+# US-COLLECTE-01 — historique avant fusion
+
+> Ce suivi décrit la révision avant fusion des PR #10 et #14.
+> Le périmètre courant de l'US est le contrat des événements. Voir
+> [l'intégration actuelle](../collection/integration-pr-10-14.md).
+> Les résultats ci-dessous ne valident pas la révision fusionnée.
 
 ## Résultat fonctionnel
 

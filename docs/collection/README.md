@@ -10,3 +10,5 @@ Ce dépôt définit le format central d'ingestion `leaderboard.collection.v1.Gam
 - [Schéma Proto](../../Leaderboard.Contracts/Protos/collection_events_v1.proto) et [manifeste des fixtures](../fixtures/us-collecte-01/manifest.json).
 
 Il existe exactement 16 routes : Dungeon 3, Combat 5 (dont `combat-completed`), Player 3, Rewards 3, Progression 2. Exchanges : `<squad>.events`; clés : `<event-type>.v1`. Chaque fixture est du JSON descriptif des champs protobuf; les producteurs publient les octets Protobuf sérialisés, jamais le JSON.
+
+Répartition des responsabilités et raccordement des PR : [décisions d’intégration](integration-pr-10-14.md).

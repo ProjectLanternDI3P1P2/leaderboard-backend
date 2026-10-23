@@ -1,7 +1,10 @@
 using Leaderboard.Domain.Services;
+using Leaderboard.Infrastructure.Messaging;
 using Leaderboard.Infrastructure.Persistence;
+using Leaderboard.Infrastructure.Persistence.Mongo;
 using Leaderboard.Infrastructure.PipelineBehavior;
 using Leaderboard.Infrastructure.Services;
+using Leaderboard.Infrastructure.Warehouse;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -27,7 +30,10 @@ public static class InfrastructureServiceRegistration
             .AddSingleton<IClock, SystemClock>()
             .AddTransient(typeof(IPipelineBehavior<,>), typeof(CommandTransactionBehavior<,>))
             .AddEfConnection()
-            .AddRepositories();
+            .AddRepositories()
+            .AddMongoEventStore(configuration)
+            .AddWarehouse(configuration)
+            .AddMessaging(configuration);
     }
 
     private static IServiceCollection AddRepositories(this IServiceCollection services)

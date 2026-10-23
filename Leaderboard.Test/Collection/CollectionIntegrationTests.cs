@@ -1,623 +1,332 @@
-using System.Diagnostics;
 using FluentAssertions;
 using Google.Protobuf;
 using Leaderboard.Contracts.Collection.V1;
-using Leaderboard.Domain.Collection;
+using Leaderboard.Domain.Entities;
+using Leaderboard.Domain.Enums;
 using Leaderboard.Domain.Repositories;
-using Leaderboard.Infrastructure.Collection;
+using Leaderboard.Domain.Services;
+using Leaderboard.Infrastructure.Messaging;
+using Leaderboard.Infrastructure.Services;
+using Leaderboard.Test.Integration.Warehouse;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
-using MongoDB.Bson;
-using MongoDB.Driver;
+using Moq;
 using RabbitMQ.Client;
 
 namespace Leaderboard.Test.Collection;
 
-/// <summary>Real engines; start `docker compose up -d rabbitmq mongo` first. No silent skips.</summary>
 public sealed class CollectionIntegrationTests
 {
     [Fact]
-    public async Task BrokerToMongoPreservesEveryBodyAndDuplicateProducerIds()
+    public async Task Catalogue_RabbitMqToMongoToPostgres_PreservesBytesAndProjectsEveryParticipantOnce()
     {
-        await using var stack = new TestStack();
-        using var host = stack.BuildHost();
+        await using var warehouse = await WarehouseTestHarness.CreateAsync(
+            TestContext.Current.CancellationToken
+        );
+        await using var stack = await CollectorStack.CreateAsync(warehouse.RawEventStore);
+        using var host = stack.BuildHost(warehouse.RawEventStore);
         await host.StartAsync(TestContext.Current.CancellationToken);
-        await stack.WaitForQueueAsync();
-        var message = ArchiveEventTests.Fixture();
-        var body = message.ToByteArray().Concat(new byte[] { 8, 1, 160, 6, 42 }).ToArray();
-        await stack.PublishAsync(body, "same-broker-id");
-        await stack.PublishAsync(body, "same-broker-id");
-        await stack.PublishAsync([255], "unreadable");
-        message.EnvelopeVersion = 99;
-        var unknown = message.ToByteArray();
-        await stack.PublishAsync(unknown, "unknown");
-        var receipts = await stack.WaitForReceiptsAsync(4);
-        await host.StopAsync(TestContext.Current.CancellationToken);
-
-        receipts.Select(x => x.ReceiptId).Distinct().Should().HaveCount(4);
-        var duplicates = receipts.Where(x => x.BrokerMessageId == "same-broker-id").ToArray();
-        duplicates.Should().HaveCount(2);
-        foreach (var receipt in duplicates)
+        await stack.WaitForConsumerAsync();
+        var messages = EventFixtures.Catalogue().ToArray();
+        List<byte[]> bodies = [];
+        foreach (var message in messages)
         {
-            receipt.Body.Should().Equal(body);
-            receipt.TransactionId.Should().Be(message.TransactionId);
-            receipt.ProducerSquad.Should().Be("Player");
-            receipt.ReceivedAt.Offset.Should().Be(TimeSpan.Zero);
-            receipt.ParseStatus.Should().Be("Valid");
-            receipt.Exchange.Should().Be("player.events");
-            receipt.RoutingKey.Should().Be("player.hero-created.v1");
+            // These legal extra wire bytes must not disappear through reserialization.
+            byte[] body = [.. message.ToByteArray(), 8, 1, 160, 6, 42];
+            bodies.Add(body);
+            await stack.PublishAsync(message, body);
         }
-        receipts.Single(x => x.BrokerMessageId == "unreadable").Body.Should().Equal([255]);
-        receipts.Single(x => x.BrokerMessageId == "unknown").Body.Should().Equal(unknown);
-        (
-            await stack.Channel.QueueDeclarePassiveAsync(
-                stack.Options.QueueName,
-                TestContext.Current.CancellationToken
-            )
-        )
-            .MessageCount.Should()
-            .Be(0);
-    }
-
-    [Fact]
-    public async Task EveryCatalogueRouteAndDistinctEventsSharingATransactionAreArchived()
-    {
-        await using var stack = new TestStack();
-        using var host = stack.BuildHost();
-        await host.StartAsync(TestContext.Current.CancellationToken);
-        await stack.WaitForQueueAsync();
-
-        var messages = CatalogueFixtures();
-        messages
-            .Select(x => x.Definition.RoutingKey)
-            .Distinct()
+        await stack.PublishAsync(messages[0], bodies[0]);
+        await stack.PublishAsync(messages[0], [255]);
+        var invalid = EventFixtures.Load("hero-created.json");
+        invalid.HeroCreated.Actor.PlayerId = "";
+        await stack.PublishAsync(invalid, invalid.ToByteArray());
+        var unknown = EventFixtures.Load("hero-created.json");
+        unknown.EnvelopeVersion = 99;
+        await stack.PublishAsync(unknown, unknown.ToByteArray());
+        var receipts = await stack.WaitForReceiptsAsync(20);
+        receipts.Should().HaveCount(20);
+        receipts.Count(r => r.ParseStatus == "Valid").Should().Be(17);
+        receipts.Count(r => r.ParseStatus == "Unreadable").Should().Be(1);
+        receipts.Count(r => r.ParseStatus == "InvalidOrUnknown").Should().Be(2);
+        foreach (var body in bodies)
+            receipts.Should().Contain(r => r.Payload.SequenceEqual(body));
+        receipts
+            .Where(r => r.ParseStatus == "Valid")
             .Should()
-            .HaveCount(GameEventContract.Events.Count);
-        foreach (var (definition, message, body) in messages)
-        {
-            await stack.PublishAsync(
-                body,
-                message.MessageId,
-                definition.EventType.Split('.')[0] + ".events",
-                definition.RoutingKey
+            .OnlyContain(r =>
+                r.TransactionId != null
+                && r.MessageId != null
+                && r.Producer != null
+                && r.ReceivedAt > DateTimeOffset.UtcNow.AddMinutes(-1)
             );
-        }
+        receipts.Select(r => r.Id).Should().OnlyHaveUniqueItems();
 
-        var receipts = await stack.WaitForReceiptsAsync(messages.Count);
+        var started = await warehouse.StartAsync(TestContext.Current.CancellationToken);
+        await warehouse.RunAsync(3, TestContext.Current.CancellationToken);
+        var report = await warehouse.GetRebuildAsync(started.Id);
+        report.Status.Should().Be(WarehouseRebuildStatus.Completed);
+        report.EventsProcessed.Should().Be(20);
+        report.EventsApplied.Should().Be(16);
+        report.DuplicatesIgnored.Should().Be(1);
+        report.EventsIgnored.Should().Be(3);
+        var rows = await warehouse.GetGenerationAsync(report.GenerationId);
+        rows.Players.Should().HaveCount(2);
+        rows.Players.Single(p => p.PlayerId == "00000000-0000-4000-8000-000000000001")
+            .TotalActions.Should()
+            .Be(15);
+        rows.Players.Single(p => p.PlayerId == "00000000-0000-4000-8000-000000000004")
+            .TotalActions.Should()
+            .Be(7);
+        rows.Actions.Single(a => a.ActionType == "rewards.gold-earned")
+            .ValueTotal.Should()
+            .Be(messages.Single(m => m.GoldEarned != null).GoldEarned.Amount);
+        rows.Actions.Single(a => a.ActionType == "progression.xp-awarded")
+            .ValueTotal.Should()
+            .Be(messages.Single(m => m.XpAwarded != null).XpAwarded.Amount);
+        rows.Actions.Select(a => a.ActionType).Distinct().Should().HaveCount(16);
         await host.StopAsync(TestContext.Current.CancellationToken);
-
-        receipts.Should().HaveCount(messages.Count);
-        foreach (var (definition, message, body) in messages)
-        {
-            var receipt = receipts.Single(x => x.BrokerMessageId == message.MessageId);
-            receipt.Body.Should().Equal(body);
-            receipt.TransactionId.Should().Be(message.TransactionId);
-            receipt.ProducerSquad.Should().Be(message.ProducerSquad.ToString());
-            receipt.RoutingKey.Should().Be(definition.RoutingKey);
-            receipt.ParseStatus.Should().Be("Valid");
-            receipt.ReceivedAt.Offset.Should().Be(TimeSpan.Zero);
-        }
-
-        var sharedTransaction = messages
-            .Where(x =>
-                x.Message.MessageId
-                    is "00000000-0000-4000-8000-000000001016"
-                        or "00000000-0000-4000-8000-000000001017"
-            )
-            .ToArray();
-        sharedTransaction.Should().HaveCount(2);
-        sharedTransaction.Select(x => x.Message.TransactionId).Distinct().Should().ContainSingle();
-        sharedTransaction[0].Body.Should().NotEqual(sharedTransaction[1].Body);
-        receipts.Select(x => x.ReceiptId).Distinct().Should().HaveCount(messages.Count);
     }
 
-    [Fact]
-    public async Task InsertConfirmedBeforeAckCrashWindowRetainsBothDeliveryReceipts()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StopBeforeAck_RedeliversAndPreservesAnyAlreadyInsertedCopy(bool insertFirst)
     {
-        await using var stack = new TestStack();
-        var insertThenBlock = new InsertThenBlockRepository(stack.Repository);
-        var body = ArchiveEventTests.Fixture().ToByteArray();
-        using (var host = stack.BuildHost(insertThenBlock))
-        {
-            await host.StartAsync(TestContext.Current.CancellationToken);
-            await stack.WaitForQueueAsync();
-            await stack.PublishAsync(body, "insert-before-ack");
-            await insertThenBlock.InsertConfirmed.Task.WaitAsync(
-                TimeSpan.FromSeconds(20),
-                TestContext.Current.CancellationToken
-            );
-            await host.StopAsync(TestContext.Current.CancellationToken)
-                .WaitAsync(TimeSpan.FromSeconds(15), TestContext.Current.CancellationToken);
-        }
-
-        var pending = await stack.Channel.BasicGetAsync(
-            stack.Options.QueueName,
-            false,
+        await using var warehouse = await WarehouseTestHarness.CreateAsync(
             TestContext.Current.CancellationToken
         );
-        pending.Should().NotBeNull();
-        pending!.Redelivered.Should().BeTrue();
-        await stack.Channel.BasicNackAsync(
-            pending.DeliveryTag,
-            false,
-            true,
-            TestContext.Current.CancellationToken
-        );
-
-        using (var restarted = stack.BuildHost())
-        {
-            await restarted.StartAsync(TestContext.Current.CancellationToken);
-            var receipts = await stack.WaitForReceiptsAsync(2);
-            receipts.Should().HaveCount(2);
-            receipts.Select(x => x.Body).Should().OnlyContain(x => x.SequenceEqual(body));
-            receipts.Select(x => x.ReceiptId).Distinct().Should().HaveCount(2);
-            receipts.Should().ContainSingle(x => x.Redelivered);
-            await restarted.StopAsync(TestContext.Current.CancellationToken);
-        }
-    }
-
-    [Fact]
-    public async Task StopBeforeWriteReturnsUnackedMessageAndRestartArchivesIt()
-    {
-        await using var stack = new TestStack();
-        var blocked = new BlockingRepository();
-        using (var host = stack.BuildHost(blocked))
-        {
-            await host.StartAsync(TestContext.Current.CancellationToken);
-            await stack.WaitForQueueAsync();
-            await stack.PublishAsync(ArchiveEventTests.Fixture().ToByteArray(), "restart");
-            await blocked.Entered.Task.WaitAsync(
-                TimeSpan.FromSeconds(20),
-                TestContext.Current.CancellationToken
-            );
-            (
-                await stack.Repository.ReadPeriodAsync(
-                    DateTimeOffset.MinValue,
-                    DateTimeOffset.MaxValue,
-                    TestContext.Current.CancellationToken
+        await using var stack = await CollectorStack.CreateAsync(warehouse.RawEventStore);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var blocked = new Mock<IRawEventStore>();
+        blocked
+            .Setup(s =>
+                s.AppendAsync(
+                    It.IsAny<IReadOnlyCollection<RawEvent>>(),
+                    It.IsAny<CancellationToken>()
                 )
             )
-                .Should()
-                .BeEmpty();
-            // Graceful stop cancels the unfinished insert and closes the channel without ACK.
-            await host.StopAsync(TestContext.Current.CancellationToken)
-                .WaitAsync(TimeSpan.FromSeconds(15), TestContext.Current.CancellationToken);
-        }
-        var pending = await stack.Channel.BasicGetAsync(
-            stack.Options.QueueName,
-            false,
-            TestContext.Current.CancellationToken
-        );
-        pending.Should().NotBeNull();
-        pending!.Redelivered.Should().BeTrue();
-        await stack.Channel.BasicNackAsync(
-            pending.DeliveryTag,
-            false,
-            true,
-            TestContext.Current.CancellationToken
-        );
-
-        using (var restarted = stack.BuildHost())
+            .Returns(
+                async (IReadOnlyCollection<RawEvent> events, CancellationToken ct) =>
+                {
+                    if (insertFirst)
+                        await warehouse.RawEventStore.AppendAsync(events, ct);
+                    entered.TrySetResult();
+                    await Task.Delay(Timeout.Infinite, ct);
+                }
+            );
+        var message = EventFixtures.Load("hero-created.json");
+        using (var host = stack.BuildHost(blocked.Object))
         {
-            await restarted.StartAsync(TestContext.Current.CancellationToken);
-            var receipts = await stack.WaitForReceiptsAsync(1);
-            receipts.Single().Redelivered.Should().BeTrue();
-            receipts.Single().Body.Should().Equal(ArchiveEventTests.Fixture().ToByteArray());
-            await restarted.StopAsync(TestContext.Current.CancellationToken);
-        }
-    }
-
-    [Fact]
-    public async Task ChildProcessCrashBeforeInsertRedeliversAfterRestart()
-    {
-        await using var stack = new TestStack();
-        var repoRoot = FindRepositoryRoot();
-        var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
-        var childAssembly = Path.Combine(
-            repoRoot,
-            "scripts",
-            "collection",
-            "bin",
-            configuration,
-            "net10.0",
-            "Collection.Load.dll"
-        );
-        File.Exists(childAssembly).Should().BeTrue("the test project builds the probe helper");
-        var marker = Path.Combine(
-            Path.GetTempPath(),
-            "collection-probe-" + Guid.NewGuid().ToString("N")
-        );
-        using var child = Process.Start(
-            CreateProbeStartInfo(
-                childAssembly,
-                stack.Options.QueueName,
-                stack.Options.DeadLetterQueueName,
-                stack.Options.DeadLetterExchangeName,
-                stack.Options.MaxDeliveryAttempts,
-                stack.DatabaseName,
-                marker
-            )
-        );
-        child.Should().NotBeNull();
-
-        try
-        {
-            await stack.WaitForQueueAsync();
-            var body = ArchiveEventTests.Fixture().ToByteArray();
-            await stack.PublishAsync(body, "child-crash-before-insert");
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
-            while (!File.Exists(marker) && DateTimeOffset.UtcNow < deadline)
-                await Task.Delay(50, TestContext.Current.CancellationToken);
-            File.Exists(marker)
-                .Should()
-                .BeTrue("the production consumer reached its pre-insert repository barrier");
-
-            child!.Kill(entireProcessTree: true);
-            await child.WaitForExitAsync(TestContext.Current.CancellationToken);
-            var pending = await WaitForReadyDeliveryAsync(stack, TimeSpan.FromSeconds(20));
-            pending.Should().NotBeNull();
-            pending!.Redelivered.Should().BeTrue();
-            await stack.Channel.BasicNackAsync(
-                pending.DeliveryTag,
-                false,
-                true,
+            await host.StartAsync(TestContext.Current.CancellationToken);
+            await stack.WaitForConsumerAsync();
+            await stack.PublishAsync(message, message.ToByteArray());
+            await entered.Task.WaitAsync(
+                TimeSpan.FromSeconds(15),
                 TestContext.Current.CancellationToken
             );
-
-            using var restarted = stack.BuildHost();
-            await restarted.StartAsync(TestContext.Current.CancellationToken);
-            var receipts = await stack.WaitForReceiptsAsync(1);
-            receipts.Should().ContainSingle();
-            receipts.Single().Body.Should().Equal(body);
-            receipts.Single().Redelivered.Should().BeTrue();
-            await restarted.StopAsync(TestContext.Current.CancellationToken);
+            await host.StopAsync(TestContext.Current.CancellationToken);
         }
-        finally
-        {
-            if (child is { HasExited: false })
-            {
-                child.Kill(entireProcessTree: true);
-                await child.WaitForExitAsync(CancellationToken.None);
-            }
-            if (File.Exists(marker))
-                File.Delete(marker);
-        }
+        using var restarted = stack.BuildHost(warehouse.RawEventStore);
+        await restarted.StartAsync(TestContext.Current.CancellationToken);
+        var receipts = await stack.WaitForReceiptsAsync(insertFirst ? 2 : 1);
+        receipts.Should().OnlyContain(r => r.Payload.SequenceEqual(message.ToByteArray()));
+        receipts.Should().Contain(r => r.Redelivered);
+        var started = await warehouse.StartAsync(TestContext.Current.CancellationToken);
+        await warehouse.RunAsync(1, TestContext.Current.CancellationToken);
+        var report = await warehouse.GetRebuildAsync(started.Id);
+        report.EventsApplied.Should().Be(1);
+        report.DuplicatesIgnored.Should().Be(insertFirst ? 1 : 0);
+        await restarted.StopAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
-    public async Task WriteFailureRetriesWithDelayThenRetainsBodyInDurableQuarantine()
+    public async Task StoreFailure_ExhaustsBatchRetriesThenRetainsOriginalBodyInQuarantine()
     {
-        await using var stack = new TestStack();
-        var failing = new FailingRepository();
-        using var host = stack.BuildHost(failing);
+        await using var warehouse = await WarehouseTestHarness.CreateAsync(
+            TestContext.Current.CancellationToken
+        );
+        await using var stack = await CollectorStack.CreateAsync(warehouse.RawEventStore);
+        var failed = new Mock<IRawEventStore>();
+        failed
+            .Setup(s =>
+                s.AppendAsync(
+                    It.IsAny<IReadOnlyCollection<RawEvent>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new IOException("Unavailable"));
+        using var host = stack.BuildHost(failed.Object);
         await host.StartAsync(TestContext.Current.CancellationToken);
-        await stack.WaitForQueueAsync();
-        byte[] body = [255];
-        await stack.PublishAsync(body, "failed");
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        await stack.WaitForConsumerAsync();
+        var message = EventFixtures.Load("hero-created.json");
+        await stack.PublishAsync(message, message.ToByteArray());
         BasicGetResult? quarantined = null;
-        while (DateTimeOffset.UtcNow < deadline && quarantined is null)
+        await CollectorStack.WaitAsync(async () =>
         {
             quarantined = await stack.Channel.BasicGetAsync(
                 stack.Options.DeadLetterQueueName,
                 true,
                 TestContext.Current.CancellationToken
             );
-            if (quarantined is null)
-                await Task.Delay(100, TestContext.Current.CancellationToken);
-        }
+            return quarantined is not null;
+        });
+        quarantined!.Body.ToArray().Should().Equal(message.ToByteArray());
+        failed.Verify(
+            s =>
+                s.AppendAsync(
+                    It.IsAny<IReadOnlyCollection<RawEvent>>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Exactly(2)
+        );
         await host.StopAsync(TestContext.Current.CancellationToken);
-        quarantined.Should().NotBeNull();
-        quarantined!.Body.ToArray().Should().Equal(body);
-        failing.Attempts.Should().BeInRange(2, 5);
-        failing
-            .Times.Zip(failing.Times.Skip(1), (a, b) => b - a)
-            .Should()
-            .OnlyContain(x => x >= TimeSpan.FromMilliseconds(900));
     }
 
-    private sealed class BlockingRepository : IRawEventRepository
+    private sealed class CollectorStack(
+        IRawEventStore store,
+        IConnection connection,
+        IChannel channel
+    ) : IAsyncDisposable
     {
-        public TaskCompletionSource Entered { get; } =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public async Task AddAsync(RawEventReceipt receipt, CancellationToken cancellationToken)
-        {
-            Entered.TrySetResult();
-            await Task.Delay(Timeout.Infinite, cancellationToken);
-        }
-
-        public Task<IReadOnlyList<RawEventReceipt>> ReadPeriodAsync(
-            DateTimeOffset a,
-            DateTimeOffset b,
-            CancellationToken ct
-        ) => throw new NotSupportedException();
-    }
-
-    private sealed class InsertThenBlockRepository(IRawEventRepository inner) : IRawEventRepository
-    {
-        public TaskCompletionSource InsertConfirmed { get; } =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public async Task AddAsync(RawEventReceipt receipt, CancellationToken cancellationToken)
-        {
-            await inner.AddAsync(receipt, cancellationToken);
-            InsertConfirmed.TrySetResult();
-            await Task.Delay(Timeout.Infinite, cancellationToken);
-        }
-
-        public Task<IReadOnlyList<RawEventReceipt>> ReadPeriodAsync(
-            DateTimeOffset from,
-            DateTimeOffset to,
-            CancellationToken cancellationToken
-        ) => inner.ReadPeriodAsync(from, to, cancellationToken);
-    }
-
-    private sealed class FailingRepository : IRawEventRepository
-    {
-        public int Attempts { get; private set; }
-        public List<DateTimeOffset> Times { get; } = [];
-
-        public Task AddAsync(RawEventReceipt r, CancellationToken ct)
-        {
-            Attempts++;
-            Times.Add(DateTimeOffset.UtcNow);
-            throw new IOException("storage unavailable");
-        }
-
-        public Task<IReadOnlyList<RawEventReceipt>> ReadPeriodAsync(
-            DateTimeOffset a,
-            DateTimeOffset b,
-            CancellationToken ct
-        ) => throw new NotSupportedException();
-    }
-
-    private sealed class TestStack : IAsyncDisposable
-    {
-        private readonly string id = "collection_test_" + Guid.NewGuid().ToString("N");
-        private readonly Dictionary<string, string?> settings;
-        private IConnection? connection;
-        private IChannel? channel;
-        public IChannel Channel => channel!;
-        public RabbitCollectionOptions Options { get; }
-        public MongoRawEventRepository Repository { get; }
-        public string DatabaseName => id;
-
-        public TestStack()
-        {
-            Options = new RabbitCollectionOptions
+        public IChannel Channel => channel;
+        public RawEventConsumerOptions Options { get; } =
+            new()
             {
                 Enabled = true,
-                QueueName = id,
-                DeadLetterQueueName = id + ".dead",
-                DeadLetterExchangeName = id + ".dlx",
-                UserName =
-                    Environment.GetEnvironmentVariable("LEADERBOARD_TEST_RABBITMQ_USER")
-                    ?? "leaderboard",
-                Password =
-                    Environment.GetEnvironmentVariable("LEADERBOARD_TEST_RABBITMQ_PASSWORD")
-                    ?? "leaderboard",
-                MaxDeliveryAttempts = 2,
-                RetryDelaySeconds = 1,
-                ReconnectDelaySeconds = 1,
+                QueueName = "merge_test_" + Guid.NewGuid().ToString("N"),
+                DeadLetterQueueName = "merge_dead_" + Guid.NewGuid().ToString("N"),
             };
-            settings = new()
-            {
-                ["RabbitMq:Enabled"] = "true",
-                ["RabbitMq:QueueName"] = Options.QueueName,
-                ["RabbitMq:DeadLetterQueueName"] = Options.DeadLetterQueueName,
-                ["RabbitMq:DeadLetterExchangeName"] = Options.DeadLetterExchangeName,
-                ["RabbitMq:UserName"] = Options.UserName,
-                ["RabbitMq:Password"] = Options.Password,
-                ["RabbitMq:RetryDelaySeconds"] = "1",
-                ["RabbitMq:ReconnectDelaySeconds"] = "1",
-                ["RabbitMq:MaxDeliveryAttempts"] = "2",
-                ["MongoArchive:Database"] = id,
-            };
-            Repository = new MongoRawEventRepository(
-                Microsoft.Extensions.Options.Options.Create(
-                    new MongoArchiveOptions { Database = id }
-                )
-            );
-        }
+        private static string User =>
+            Environment.GetEnvironmentVariable("LEADERBOARD_TEST_RABBITMQ_USER") ?? "leaderboard";
+        private static string Password =>
+            Environment.GetEnvironmentVariable("LEADERBOARD_TEST_RABBITMQ_PASSWORD")
+            ?? "leaderboard";
 
-        public IHost BuildHost(IRawEventRepository? repository = null)
+        public static async Task<CollectorStack> CreateAsync(IRawEventStore store)
         {
-            var builder = Host.CreateApplicationBuilder();
-            builder.Configuration.Sources.Clear();
-            builder.Configuration.AddInMemoryCollection(settings);
-            builder.Services.AddEventCollection(builder.Configuration);
-            if (repository is not null)
+            var connection = await new ConnectionFactory
             {
-                builder.Services.RemoveAll<IRawEventRepository>();
-                builder.Services.AddSingleton(repository);
-            }
-            return builder.Build();
-        }
-
-        public async Task WaitForQueueAsync()
-        {
-            connection = await Options.CreateConnectionFactory().CreateConnectionAsync();
-            channel = await connection.CreateChannelAsync(
+                HostName = "localhost",
+                UserName = User,
+                Password = Password,
+            }.CreateConnectionAsync();
+            var channel = await connection.CreateChannelAsync(
                 new CreateChannelOptions(
                     publisherConfirmationsEnabled: true,
                     publisherConfirmationTrackingEnabled: true
                 )
             );
-            // Idempotent declaration also makes publisher readiness deterministic.
-            await RabbitEventCollector.DeclareTopologyAsync(
-                channel,
-                Options,
-                TestContext.Current.CancellationToken
+            var result = new CollectorStack(store, connection, channel);
+            await channel.QueueDeclareAsync(
+                result.Options.DeadLetterQueueName,
+                true,
+                false,
+                false,
+                new Dictionary<string, object?> { ["x-queue-type"] = "quorum" }
             );
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
-            while ((await channel.QueueDeclarePassiveAsync(Options.QueueName)).ConsumerCount == 0)
-            {
-                if (DateTimeOffset.UtcNow >= deadline)
-                    throw new TimeoutException("Collector did not start.");
-                await Task.Delay(100);
-            }
+            await channel.QueueDeclareAsync(
+                result.Options.QueueName,
+                true,
+                false,
+                false,
+                new Dictionary<string, object?>
+                {
+                    ["x-queue-type"] = "quorum",
+                    ["x-overflow"] = "reject-publish",
+                    ["x-dead-letter-strategy"] = "at-least-once",
+                    ["x-dead-letter-exchange"] = "",
+                    ["x-dead-letter-routing-key"] = result.Options.DeadLetterQueueName,
+                }
+            );
+            return result;
         }
 
-        public async Task PublishAsync(
-            byte[] bytes,
-            string messageId,
-            string exchange = "player.events",
-            string routingKey = "player.hero-created.v1"
-        ) =>
-            await Channel.BasicPublishAsync(
-                exchange,
-                routingKey,
+        public IHost BuildHost(IRawEventStore target)
+        {
+            var builder = Host.CreateApplicationBuilder();
+            builder.Configuration.Sources.Clear();
+            builder.Configuration.AddInMemoryCollection(
+                new Dictionary<string, string?>
+                {
+                    ["RabbitMq:Enabled"] = "true",
+                    ["RabbitMq:UserName"] = User,
+                    ["RabbitMq:Password"] = Password,
+                    ["RawEventConsumer:Enabled"] = "true",
+                    ["RawEventConsumer:QueueName"] = Options.QueueName,
+                    ["RawEventConsumer:DeadLetterQueueName"] = Options.DeadLetterQueueName,
+                    ["RawEventConsumer:BatchTimeout"] = "00:00:00.050",
+                    ["RawEventConsumer:MaxAttempts"] = "2",
+                    ["RawEventConsumer:InitialBackoff"] = "00:00:00.050",
+                    ["RawEventConsumer:ReconnectDelay"] = "00:00:00.100",
+                }
+            );
+            builder
+                .Services.AddSingleton<IClock, SystemClock>()
+                .AddSingleton(target)
+                .AddMessaging(builder.Configuration);
+            return builder.Build();
+        }
+
+        public Task WaitForConsumerAsync() =>
+            WaitAsync(async () =>
+                (await channel.QueueDeclarePassiveAsync(Options.QueueName)).ConsumerCount > 0
+            );
+
+        public async Task PublishAsync(GameEventEnvelope message, byte[] body) =>
+            await channel.BasicPublishAsync(
+                message.EventType.Split('.')[0] + ".events",
+                $"{message.EventType}.v{message.EventVersion}",
                 true,
                 new BasicProperties
                 {
                     Persistent = true,
-                    MessageId = messageId,
-                    CorrelationId = id,
+                    MessageId = message.MessageId,
                     ContentType = "application/x-protobuf",
                 },
-                bytes
+                body
             );
 
-        public async Task<IReadOnlyList<RawEventReceipt>> WaitForReceiptsAsync(int count)
+        public async Task<List<RawEvent>> WaitForReceiptsAsync(int count)
         {
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
-            while (DateTimeOffset.UtcNow < deadline)
+            List<RawEvent> receipts = [];
+            await WaitAsync(async () =>
             {
-                var receipts = await Repository.ReadPeriodAsync(
-                    DateTimeOffset.MinValue,
-                    DateTimeOffset.MaxValue,
-                    TestContext.Current.CancellationToken
-                );
-                if (receipts.Count >= count)
-                    return receipts;
-                await Task.Delay(100);
+                receipts.Clear();
+                await foreach (
+                    var item in store.GetByPeriodAsync(
+                        DateTimeOffset.MinValue,
+                        DateTimeOffset.MaxValue,
+                        TestContext.Current.CancellationToken
+                    )
+                )
+                    receipts.Add(item);
+                return receipts.Count >= count;
+            });
+            return receipts;
+        }
+
+        public static async Task WaitAsync(Func<Task<bool>> condition)
+        {
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(15);
+            while (!await condition())
+            {
+                if (DateTimeOffset.UtcNow > deadline)
+                    throw new TimeoutException("Collector integration check timed out.");
+                await Task.Delay(50, TestContext.Current.CancellationToken);
             }
-            throw new TimeoutException($"Expected {count} Mongo receipts.");
         }
 
         public async ValueTask DisposeAsync()
         {
-            if (channel is { IsOpen: true })
+            if (channel.IsOpen)
             {
                 await channel.QueueDeleteAsync(Options.QueueName);
                 await channel.QueueDeleteAsync(Options.DeadLetterQueueName);
-                await channel.ExchangeDeleteAsync(Options.DeadLetterExchangeName);
-                await channel.DisposeAsync();
             }
-            if (connection is not null)
-                await connection.DisposeAsync();
-            // Isolated test database only; shared local volumes and other databases are preserved.
-            await new MongoClient("mongodb://localhost:27017").DropDatabaseAsync(id);
+            await channel.DisposeAsync();
+            await connection.DisposeAsync();
         }
-    }
-
-    private static List<(
-        EventDefinition Definition,
-        GameEventEnvelope Message,
-        byte[] Body
-    )> CatalogueFixtures()
-    {
-        var directory = Path.Combine(AppContext.BaseDirectory, "CollectionFixtures");
-        using var document = System.Text.Json.JsonDocument.Parse(
-            File.ReadAllText(Path.Combine(directory, "manifest.json"))
-        );
-        var fixtures = document
-            .RootElement.GetProperty("fixtures")
-            .EnumerateArray()
-            .Where(x => x.GetProperty("expected").GetString() == "valid")
-            .ToArray();
-        var result = new List<(EventDefinition, GameEventEnvelope, byte[])>();
-        foreach (var definition in GameEventContract.Events)
-        {
-            var fixture = fixtures.First(x =>
-                x.GetProperty("routingKey").GetString() == definition.RoutingKey
-            );
-            var message = GameEventEnvelope.Parser.ParseJson(
-                File.ReadAllText(Path.Combine(directory, fixture.GetProperty("file").GetString()!))
-            );
-            result.Add((definition, message, message.ToByteArray()));
-        }
-
-        var secondParticipant = fixtures.First(x =>
-            x.GetProperty("file").GetString() == "participant-second.json"
-        );
-        var participantDefinition = GameEventContract.Events.Single(x =>
-            x.EventType == "player.game-session-participant-joined"
-        );
-        var secondMessage = GameEventEnvelope.Parser.ParseJson(
-            File.ReadAllText(
-                Path.Combine(directory, secondParticipant.GetProperty("file").GetString()!)
-            )
-        );
-        result.Add((participantDefinition, secondMessage, secondMessage.ToByteArray()));
-        return result;
-    }
-
-    private static ProcessStartInfo CreateProbeStartInfo(
-        string childAssembly,
-        string queue,
-        string deadLetterQueue,
-        string deadLetterExchange,
-        int maxDeliveryAttempts,
-        string database,
-        string marker
-    )
-    {
-        var startInfo = new ProcessStartInfo("dotnet") { UseShellExecute = false };
-        startInfo.ArgumentList.Add(childAssembly);
-        startInfo.ArgumentList.Add("--probe-before-insert");
-        startInfo.ArgumentList.Add("--queue");
-        startInfo.ArgumentList.Add(queue);
-        startInfo.ArgumentList.Add("--dead-letter-queue");
-        startInfo.ArgumentList.Add(deadLetterQueue);
-        startInfo.ArgumentList.Add("--dead-letter-exchange");
-        startInfo.ArgumentList.Add(deadLetterExchange);
-        startInfo.ArgumentList.Add("--max-delivery-attempts");
-        startInfo.ArgumentList.Add(
-            maxDeliveryAttempts.ToString(System.Globalization.CultureInfo.InvariantCulture)
-        );
-        startInfo.ArgumentList.Add("--database");
-        startInfo.ArgumentList.Add(database);
-        startInfo.ArgumentList.Add("--started-marker");
-        startInfo.ArgumentList.Add(marker);
-        startInfo.WorkingDirectory = FindRepositoryRoot();
-        return startInfo;
-    }
-
-    private static string FindRepositoryRoot()
-    {
-        for (
-            var directory = new DirectoryInfo(AppContext.BaseDirectory);
-            directory is not null;
-            directory = directory.Parent
-        )
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "Leaderboard.Presentation.slnx")))
-                return directory.FullName;
-        }
-        throw new DirectoryNotFoundException("Cannot locate the repository root.");
-    }
-
-    private static async Task<BasicGetResult?> WaitForReadyDeliveryAsync(
-        TestStack stack,
-        TimeSpan timeout
-    )
-    {
-        var deadline = DateTimeOffset.UtcNow + timeout;
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            var pending = await stack.Channel.BasicGetAsync(
-                stack.Options.QueueName,
-                false,
-                TestContext.Current.CancellationToken
-            );
-            if (pending is not null)
-                return pending;
-            await Task.Delay(50, TestContext.Current.CancellationToken);
-        }
-        return null;
     }
 }

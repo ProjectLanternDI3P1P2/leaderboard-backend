@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -23,10 +23,6 @@
     <ProjectReference Include="..\Leaderboard.Application\Leaderboard.Application.csproj" />
     <ProjectReference Include="..\Leaderboard.Domain\Leaderboard.Domain.csproj" />
     <ProjectReference Include="..\Leaderboard.Infrastructure\Leaderboard.Infrastructure.csproj" />
-    <ProjectReference
-      Include="..\scripts\collection\Collection.Load.csproj"
-      ReferenceOutputAssembly="false"
-    />
     <ProjectReference Include="..\Leaderboard.Presentation\Leaderboard.Presentation.csproj" />
   </ItemGroup>
 

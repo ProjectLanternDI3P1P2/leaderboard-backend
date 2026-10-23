@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -34,6 +34,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Leaderboard.Application\Leaderboard.Application.csproj" />
+    <ProjectReference Include="..\Leaderboard.Contracts\Leaderboard.Contracts.csproj" />
     <ProjectReference Include="..\Leaderboard.Domain\Leaderboard.Domain.csproj" />
   </ItemGroup>
 

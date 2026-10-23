@@ -117,11 +117,38 @@ PostgreSQL port `5433`. The Compose API uses its own `postgres:5432` connection.
 
 ## Asynchronous messaging
 
-The API uses PostgreSQL. RabbitMQ and MongoDB are also present in Compose for the
-collector. Collection configuration and OPS handoff are documented in
-[deployment configuration](docs/deployment-configuration.md) and
-[OPS notes](docs/ops/README.md).
-Run powershell -NoProfile -File scripts/Test-ContainerCommunication.ps1 to verify API persistence and an independent RabbitMQ round-trip.
+The canonical ingestion contract is `leaderboard.collection.v1.GameEventEnvelope`,
+with 16 typed event routes documented in [the catalogue](docs/collection/README.md).
+The consumer and immutable MongoDB journal come from PR #10; the warehouse comes from PR #14.
+The complete AMQP body is archived before ACK, including invalid/unknown envelopes.
+See [integration decisions](docs/collection/integration-pr-10-14.md),
+[deployment configuration](docs/deployment-configuration.md) and [OPS notes](docs/ops/README.md).
+
+## Warehouse rebuild
+
+The warehouse (player statistics and league table) is recalculated from the raw
+event store; the design is in
+[ADR-0038](./docs/adr/0038-rebuild-the-warehouse-into-a-new-generation-from-the-raw-event-store.md).
+The rebuild endpoints require the `operator` role in the `X-Roles` header.
+
+| Endpoint | Does |
+| --- | --- |
+| `POST /api/v1/warehouse/rebuilds` | Requests a full rebuild (202, or 409 if one is pending or running) |
+| `POST /api/v1/warehouse/rebuilds/{id}/resume` | Resumes an interrupted or failed rebuild from its checkpoint |
+| `GET /api/v1/warehouse/rebuilds/{id}` | Report: status, events processed, applied, deduplicated, ignored, most recent one |
+| `GET /api/v1/players/{playerId}/statistics` | Statistics of a player, from the last consolidated generation |
+| `GET /api/v1/leaderboard?page=1&pageSize=20` | League table, from the last consolidated generation |
+
+```bash
+curl -X POST -H "X-Roles: operator" http://localhost:8080/api/v1/warehouse/rebuilds
+```
+
+The performance test seeds millions of events, so it only runs on demand:
+
+```powershell
+$env:LEADERBOARD_PERF_EVENT_COUNT = "5000000"
+dotnet test --solution Leaderboard.Presentation.slnx --filter-class "*WarehouseRebuildPerformanceTests"
+```
 
 ## Branching flow
 
@@ -209,3 +236,12 @@ connection; it is never reset itself.
 6. Enable auto-merge on the repository; the back-merge workflow uses it.
 7. Rename the template projects to your service name, and update `/k:` and
    `/o:` in `.github/workflows/sonar.yaml`.
+
+## Contrats et intégration des événements
+
+Le format de référence est `leaderboard.collection.v1.GameEventEnvelope` :
+[contrat et fiches producteurs](docs/collection/README.md).
+Le consommateur et le stockage MongoDB proviennent de la PR #10 ; la projection
+PostgreSQL et sa reconstruction proviennent de la PR #14.
+Voir [décisions de fusion](docs/collection/integration-pr-10-14.md) et
+[configuration](docs/deployment-configuration.md).
