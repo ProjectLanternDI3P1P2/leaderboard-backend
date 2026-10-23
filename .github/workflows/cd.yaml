@@ -2,7 +2,7 @@ name: CD - Publish and promote image
 
 on:
   push:
-    branches: [dev]
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -12,14 +12,14 @@ concurrency:
 
 jobs:
   delivery:
-    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/dev'
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: read
-    uses: ProjectLanternDI3P1P2/platform-gitops/.github/workflows/publish-and-promote.yaml@b5ac372c8d41b074ab76d1de4a715a42f492ced4 # feat/argocd-delivery
+    uses: ProjectLanternDI3P1P2/platform-gitops/.github/workflows/publish-and-promote.yaml@9d823620501406e8b7ffccba742e73ab4d04879e # Harbor 10.4.111.200:18443
     with:
       application: leaderboard
-      image: registry.lantern.diiage/lantern/leaderboard-backend
+      image: 10.4.111.200:18443/lantern/leaderboard-backend
     secrets:
       HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
       HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
