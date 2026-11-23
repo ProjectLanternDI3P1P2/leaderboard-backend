@@ -37,6 +37,11 @@ public static class MessagingServiceRegistration
 
     private static void Validate(RabbitMqOptions options)
     {
+        if (options.Enabled && string.IsNullOrWhiteSpace(options.Password))
+        {
+            throw new InvalidOperationException("RabbitMq:Password is required when enabled.");
+        }
+
         if (options.Port is < 1 or > 65535)
         {
             throw new InvalidOperationException("RabbitMq:Port must be between 1 and 65535.");

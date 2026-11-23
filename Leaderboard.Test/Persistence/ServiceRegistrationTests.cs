@@ -70,7 +70,11 @@ public sealed class ServiceRegistrationTests
     public void AddMessaging_RegistersTheConsumerOnlyWhenEnabled()
     {
         var enabled = new ServiceCollection().AddMessaging(
-            Configuration(("RabbitMq:Enabled", "true"), ("RawEventConsumer:Enabled", "true"))
+            Configuration(
+                ("RabbitMq:Enabled", "true"),
+                ("RabbitMq:Password", Guid.NewGuid().ToString("N")),
+                ("RawEventConsumer:Enabled", "true")
+            )
         );
         var disabled = new ServiceCollection().AddMessaging(Configuration());
 
@@ -83,6 +87,7 @@ public sealed class ServiceRegistrationTests
     {
         IConfiguration configuration = Configuration(
             ("RabbitMq:Enabled", "true"),
+            ("RabbitMq:Password", Guid.NewGuid().ToString("N")),
             ("RawEventConsumer:Enabled", "true")
         );
         var services = new ServiceCollection()
@@ -115,6 +120,15 @@ public sealed class ServiceRegistrationTests
             .WithMessage("*requires RabbitMq:Enabled*");
     }
 
+    [Fact]
+    public void AddMessaging_RejectsAnEnabledBrokerWithoutCredentials()
+    {
+        Action register = () =>
+            new ServiceCollection().AddMessaging(Configuration(("RabbitMq:Enabled", "true")));
+
+        register.Should().Throw<InvalidOperationException>().WithMessage("*RabbitMq:Password*");
+    }
+
     [Theory]
     [InlineData("RawEventConsumer:BatchSize", "0")]
     [InlineData("RawEventConsumer:MaxAttempts", "0")]
@@ -125,6 +139,7 @@ public sealed class ServiceRegistrationTests
             new ServiceCollection().AddMessaging(
                 Configuration(
                     ("RabbitMq:Enabled", "true"),
+                    ("RabbitMq:Password", Guid.NewGuid().ToString("N")),
                     ("RawEventConsumer:Enabled", "true"),
                     (key, value)
                 )
