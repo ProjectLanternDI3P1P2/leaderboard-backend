@@ -1,3 +1,4 @@
+using Leaderboard.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,5 +16,97 @@ public static class DatabaseSeedingExtensions
             scope.ServiceProvider.GetRequiredService<LeaderboardDbContext>();
 
         await context.Database.MigrateAsync(cancellationToken);
+        await SeedDevelopmentHeroesAsync(context, cancellationToken);
+    }
+
+    private static async Task SeedDevelopmentHeroesAsync(
+        LeaderboardDbContext context,
+        CancellationToken cancellationToken
+    )
+    {
+        if (await context.HeroRankings.AnyAsync(cancellationToken))
+        {
+            return;
+        }
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        string[] names =
+        [
+            "Aldric",
+            "Brenna",
+            "Corvin",
+            "Dahlia",
+            "Eamon",
+            "Fenna",
+            "Garrick",
+            "Hestia",
+        ];
+        string[] classes = ["warrior", "shaman", "mage"];
+        var heroes = new List<HeroRanking>(220);
+
+        for (int rank = 1; rank <= 220; rank++)
+        {
+            bool mine = rank is 7 or 58 or 210;
+            bool deleted = rank is 9 or 73 or 150;
+            bool inSeason = rank != 210 && rank % 11 is not (1 or 4 or 6 or 9 or 10);
+            long xp = 1_500_000 - (rank - 1) * 6_500 + (rank * 7919) % 3000;
+            double seasonShare = rank == 7 ? 0.7 : 0.25 + (rank * 37 % 50) / 100.0;
+            DateTimeOffset? lastActivity =
+                rank == 199 ? null : now.AddMinutes(-((rank * 7919 % (13 * 24 * 60)) + 1));
+            if (!inSeason && lastActivity is not null)
+            {
+                lastActivity = now.AddDays(-(35 + rank * 13 % 120));
+            }
+
+            long? seasonXp = inSeason ? (long)Math.Round(xp * seasonShare) : null;
+            bool inWeek = inSeason && lastActivity > now.AddDays(-7);
+            heroes.Add(
+                new HeroRanking
+                {
+                    HeroId = $"demo-hero-{rank:000}",
+                    HeroName = rank switch
+                    {
+                        7 => "Maelis the Warden",
+                        58 => "Ysolde Stormcall",
+                        210 => "Quillon Ashveil",
+                        _ => $"{names[rank % names.Length]} of the Lantern",
+                    },
+                    HeroClass = rank switch
+                    {
+                        7 => "warrior",
+                        58 => "shaman",
+                        210 => "mage",
+                        _ => classes[(rank * 7 + 1) % classes.Length],
+                    },
+                    PlayerId =
+                        deleted ? null
+                        : mine ? "me"
+                        : $"demo-player-{rank % 70:000}",
+                    PlayerName =
+                        deleted ? null
+                        : mine ? "MaelisRune"
+                        : names[rank % names.Length],
+                    AllTimeXp = xp,
+                    SeasonXp = seasonXp,
+                    WeekXp = inWeek
+                        ? (long)Math.Round(seasonXp!.Value * (0.05 + rank * 53 % 20 / 100.0))
+                        : null,
+                    Level = Math.Min(60, 1 + (int)(xp / 25_000)),
+                    Runs = rank == 199 ? 0 : 30 + rank * 13 % 170,
+                    WinRate = rank == 7 ? 0.64 : 0.2 + rank * 29 % 60 / 100.0,
+                    LastActivityAt = lastActivity,
+                    CreatedAt = now.AddDays(-(inSeason ? 40 + rank % 60 : 200 + rank)),
+                    SeededAt = now,
+                    IsPending = rank == 7 || rank % 29 == 4,
+                    RankDelta =
+                        rank == 7 ? 3
+                        : rank % 13 == 0 ? null
+                        : rank * 31 % 13 - 7,
+                }
+            );
+        }
+
+        context.HeroRankings.AddRange(heroes);
+        await context.SaveChangesAsync(cancellationToken);
     }
 }

@@ -23,6 +23,72 @@ namespace Leaderboard.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Leaderboard.Domain.Entities.HeroRanking", b =>
+                {
+                    b.Property<string>("HeroId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<long>("AllTimeXp")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("HeroClass")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("HeroName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<bool>("IsPending")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("LastActivityAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PlayerId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("PlayerName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int?>("RankDelta")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Runs")
+                        .HasColumnType("integer");
+
+                    b.Property<long?>("SeasonXp")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("SeededAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("WeekXp")
+                        .HasColumnType("bigint");
+
+                    b.Property<double>("WinRate")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("HeroId");
+
+                    b.HasIndex("AllTimeXp");
+
+                    b.HasIndex("PlayerId");
+
+                    b.ToTable("hero_rankings", (string)null);
+                });
+
             modelBuilder.Entity("Leaderboard.Domain.Entities.PlayerActionStatistics", b =>
                 {
                     b.Property<Guid>("GenerationId")
