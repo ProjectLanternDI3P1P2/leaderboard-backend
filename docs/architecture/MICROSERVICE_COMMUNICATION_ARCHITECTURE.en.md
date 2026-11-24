@@ -91,7 +91,7 @@ the roster is locked once it starts. See ADR-GLOB-011.
 |---|---|---|
 | `/api/player/...` | Player | Read profile, create/select/read heroes |
 | `/api/rewards/...` | Rewards | Read inventory, equip/unequip outside combat, marketplace/purchase |
-| `/api/progression/...` | Progression | Read XP, history and leaderboard |
+| `/api/leaderboard/v1/...` | Leaderboard | Read statistics and leaderboard |
 | OIDC endpoints | Keycloak | Sign-in, token acquisition and renewal |
 
 REST payloads are JSON. Controllers are thin application boundaries and must not

@@ -26,6 +26,3 @@ Breaking contract changes require a new major route such as
 `/api/leaderboard/v2`.
 
 Multiple versions may temporarily coexist when compatibility requires it.
-
-Gateway aliases may preserve older external paths while forwarding to the
-service-owned route. The alias is a routing concern, not a second business API.
