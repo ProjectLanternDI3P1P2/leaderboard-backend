@@ -4,28 +4,13 @@ using Leaderboard.Infrastructure.Persistence;
 using Leaderboard.Infrastructure.Persistence.Mongo;
 using Leaderboard.Infrastructure.Persistence.Seeding;
 using Leaderboard.Presentation.Extensions;
+using Leaderboard.Presentation.Health;
 using Microsoft.EntityFrameworkCore;
 
 if (args.Contains("--healthcheck", StringComparer.Ordinal))
 {
     using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
-    try
-    {
-        using HttpResponseMessage response = await client.GetAsync(
-            "http://127.0.0.1:8080/health/ready"
-        );
-        if (!response.IsSuccessStatusCode)
-            Environment.ExitCode = 1;
-    }
-    catch (HttpRequestException)
-    {
-        Environment.ExitCode = 1;
-    }
-    catch (TaskCanceledException)
-    {
-        Environment.ExitCode = 1;
-    }
-
+    Environment.ExitCode = await ReadinessProbe.IsReadyAsync(client) ? 0 : 1;
     return;
 }
 
