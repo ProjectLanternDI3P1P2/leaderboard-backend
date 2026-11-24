@@ -179,21 +179,21 @@ Use resource-oriented routes.
 Prefer:
 
 ```text
-GET  /api/v1/leaderboard
-GET  /api/v1/players/{playerId}/statistics
-POST /api/v1/warehouse/rebuilds
+GET  /api/leaderboard/v1/leaderboard
+GET  /api/leaderboard/v1/players/{playerId}/statistics
+POST /api/leaderboard/v1/warehouse/rebuilds
 ```
 
 Avoid action-oriented routes such as:
 
 ```text
-POST /api/v1/startWarehouseRebuild
-GET  /api/v1/getLeaderboard
+POST /api/leaderboard/v1/startWarehouseRebuild
+GET  /api/leaderboard/v1/getLeaderboard
 ```
 
 Rules:
 
-- all APIs start at `/api/v1/...`;
+- Leaderboard client-facing APIs start at `/api/leaderboard/v1/...`;
 - route resources use lowercase plural nouns;
 - use explicit route identifiers when useful;
 - do not expose EF Core entities directly;

@@ -126,7 +126,8 @@ field errors using an `errors` dictionary.
 
 # API versioning policy
 
-All HTTP APIs begin with `/api/v1/...`.
+Leaderboard's client-facing HTTP APIs begin with `/api/leaderboard/v1/...`, so
+the gateway can route the service by prefix. See ADR 0019 for older services.
 
 Backward-compatible changes remain in the current major version.
 A breaking contract change requires a new major version.

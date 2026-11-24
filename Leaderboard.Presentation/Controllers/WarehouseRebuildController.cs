@@ -11,7 +11,7 @@ using ILogger = Serilog.ILogger;
 namespace Leaderboard.Presentation.Controllers;
 
 [ApiController]
-[Route("api/v1/warehouse/rebuilds")]
+[Route("api/leaderboard/v1/warehouse/rebuilds")]
 [RequireRole(OperatorRoleKey, DefaultOperatorRole)]
 public sealed class WarehouseRebuildController(IMediator mediator, ILogger logger) : ControllerBase
 {

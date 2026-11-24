@@ -137,14 +137,14 @@ direct calls, `X-Roles` may be comma-separated; the gateway sends Keycloak's
 
 | Endpoint | Does |
 | --- | --- |
-| `POST /api/v1/warehouse/rebuilds` | Requests a full rebuild (202, or 409 if one is pending or running) |
-| `POST /api/v1/warehouse/rebuilds/{id}/resume` | Resumes an interrupted or failed rebuild from its checkpoint |
-| `GET /api/v1/warehouse/rebuilds/{id}` | Report: status, events processed, applied, deduplicated, ignored, most recent one |
-| `GET /api/v1/players/{playerId}/statistics` | Statistics of a player, from the last consolidated generation |
-| `GET /api/v1/leaderboard?page=1&pageSize=20` | League table, from the last consolidated generation |
+| `POST /api/leaderboard/v1/warehouse/rebuilds` | Requests a full rebuild (202, or 409 if one is pending or running) |
+| `POST /api/leaderboard/v1/warehouse/rebuilds/{id}/resume` | Resumes an interrupted or failed rebuild from its checkpoint |
+| `GET /api/leaderboard/v1/warehouse/rebuilds/{id}` | Report: status, events processed, applied, deduplicated, ignored, most recent one |
+| `GET /api/leaderboard/v1/players/{playerId}/statistics` | Statistics of a player, from the last consolidated generation |
+| `GET /api/leaderboard/v1/leaderboard?page=1&pageSize=20` | League table, from the last consolidated generation |
 
 ```bash
-curl -X POST -H "X-User-Id: local-operator" -H "X-Roles: operator" http://localhost:8080/api/v1/warehouse/rebuilds
+curl -X POST -H "X-User-Id: local-operator" -H "X-Roles: operator" http://localhost:8080/api/leaderboard/v1/warehouse/rebuilds
 ```
 
 The performance test seeds millions of events, so it only runs on demand:

@@ -35,7 +35,11 @@ public sealed class WarehouseEndpointTests : IAsyncLifetime
     {
         // Act
         HttpResponseMessage response = await Operator()
-            .PostAsync("/api/v1/warehouse/rebuilds", null, TestContext.Current.CancellationToken);
+            .PostAsync(
+                "/api/leaderboard/v1/warehouse/rebuilds",
+                null,
+                TestContext.Current.CancellationToken
+            );
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Accepted);
@@ -63,7 +67,7 @@ public sealed class WarehouseEndpointTests : IAsyncLifetime
 
         // Act
         HttpResponseMessage response = await client.PostAsync(
-            "/api/v1/warehouse/rebuilds",
+            "/api/leaderboard/v1/warehouse/rebuilds",
             null,
             TestContext.Current.CancellationToken
         );
@@ -78,14 +82,14 @@ public sealed class WarehouseEndpointTests : IAsyncLifetime
         // Arrange
         HttpClient client = Operator();
         await client.PostAsync(
-            "/api/v1/warehouse/rebuilds",
+            "/api/leaderboard/v1/warehouse/rebuilds",
             null,
             TestContext.Current.CancellationToken
         );
 
         // Act
         HttpResponseMessage response = await client.PostAsync(
-            "/api/v1/warehouse/rebuilds",
+            "/api/leaderboard/v1/warehouse/rebuilds",
             null,
             TestContext.Current.CancellationToken
         );
@@ -100,7 +104,7 @@ public sealed class WarehouseEndpointTests : IAsyncLifetime
         // Act
         HttpResponseMessage response = await Operator()
             .GetAsync(
-                $"/api/v1/warehouse/rebuilds/{Guid.NewGuid()}",
+                $"/api/leaderboard/v1/warehouse/rebuilds/{Guid.NewGuid()}",
                 TestContext.Current.CancellationToken
             );
 
@@ -115,7 +119,7 @@ public sealed class WarehouseEndpointTests : IAsyncLifetime
         HttpResponseMessage response = await factory
             .CreateClient()
             .GetAsync(
-                "/api/v1/leaderboard?page=1&pageSize=10",
+                "/api/leaderboard/v1/leaderboard?page=1&pageSize=10",
                 TestContext.Current.CancellationToken
             );
 
@@ -134,7 +138,10 @@ public sealed class WarehouseEndpointTests : IAsyncLifetime
         // Act
         HttpResponseMessage response = await factory
             .CreateClient()
-            .GetAsync("/api/v1/leaderboard?pageSize=1000", TestContext.Current.CancellationToken);
+            .GetAsync(
+                "/api/leaderboard/v1/leaderboard?pageSize=1000",
+                TestContext.Current.CancellationToken
+            );
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);

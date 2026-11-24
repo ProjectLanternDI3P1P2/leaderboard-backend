@@ -31,7 +31,7 @@ try {
     $null = Invoke-Rabbit PUT $queueUrl @{ durable = $true; auto_delete = $false; arguments = @{} }
     $queueCreated = $true
 
-    $table = Invoke-RestMethod "$ApiUrl/api/v1/leaderboard?page=1&pageSize=10" -TimeoutSec 15
+    $table = Invoke-RestMethod "$ApiUrl/api/leaderboard/v1/leaderboard?page=1&pageSize=10" -TimeoutSec 15
     if ($null -eq $table.entries -or $null -eq $table.totalPlayers) { throw 'Leaderboard response mismatch.' }
     Write-Output 'PASS API league table GET HTTP 200.'
 
