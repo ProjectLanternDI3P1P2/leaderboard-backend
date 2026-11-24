@@ -4,9 +4,8 @@ Leaderboard owns event-derived statistics and league tables. Player owns player
 profiles, heroes, and game sessions. This repository follows the shared .NET
 Clean Architecture and release conventions.
 
-There is no shared backend library, so this template is the only mechanism by
-which the five services share standards. What is written here is what they have
-in common.
+There is no shared backend library. The service repositories share standards
+through their documented conventions and decisions.
 
 ## Language
 

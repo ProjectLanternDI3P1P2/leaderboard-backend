@@ -188,7 +188,7 @@ Avoid action-oriented routes such as:
 
 ```text
 POST /api/v1/startWarehouseRebuild
-GET  /api/v1/getPlayer
+GET  /api/v1/getLeaderboard
 ```
 
 Rules:

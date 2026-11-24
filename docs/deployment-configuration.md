@@ -46,7 +46,10 @@ Le mode `--migrate` existant applique uniquement les migrations PostgreSQL.
 `ConnectionStrings__PasswordFile` permet un mot de passe monté par secret.
 Voir [ADR-0038](adr/0038-rebuild-the-warehouse-into-a-new-generation-from-the-raw-event-store.md).
 
-- `Warehouse__OperatorRole=operator` : rôle attendu dans `X-Roles` fourni par la gateway.
+- `Warehouse__OperatorRole=operator` : rôle attendu dans la claim Keycloak
+  `realm_access.roles`, transmise par la gateway dans `X-Roles` au format JSON.
+  La gateway fournit aussi `X-User-Id` depuis `sub` ; les appels sans identité
+  reçoivent 401 et ceux sans rôle opérateur 403.
 - `Warehouse__Rebuild__BatchSize=5000` : événements par transaction/checkpoint.
 - `Warehouse__Rebuild__IsWorkerEnabled=true` : exécution des reconstructions en attente.
 - `Warehouse__Rebuild__PollingInterval=00:00:02`.
