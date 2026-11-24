@@ -1,0 +1,28 @@
+{
+  "envelopeVersion": 1,
+  "messageId": "00000000-0000-4000-8000-000000001020",
+  "transactionId": "00000000-0000-4000-8000-000000000900",
+  "producerSquad": "PRODUCER_SQUAD_REWARDS",
+  "eventType": "rewards.item-granted",
+  "eventVersion": 1,
+  "occurredAt": "2026-10-19T12:01:01Z",
+  "correlationId": "00000000-0000-4000-8000-000000000011",
+  "causationId": "00000000-0000-4000-8000-000000000800",
+  "itemGranted": {
+    "rewardId": "00000000-0000-4000-8000-000000000091",
+    "actor": {
+      "playerId": "00000000-0000-4000-8000-000000000001",
+      "heroId": "00000000-0000-4000-8000-000000000002",
+      "clanIdAtOccurrence": "00000000-0000-4000-8000-000000000003"
+    },
+    "item": {
+      "itemDefinitionId": "00000000-0000-4000-8000-000000000071",
+      "itemInstanceId": "00000000-0000-4000-8000-000000000072"
+    },
+    "quantity": 1,
+    "source": {
+      "type": "REWARD_SOURCE_TYPE_COMBAT",
+      "sourceId": "00000000-0000-4000-8000-000000000030"
+    }
+  }
+}

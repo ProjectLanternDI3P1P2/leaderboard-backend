@@ -1,80 +1,72 @@
-# Configuration des communications — Leaderboard
+# Configuration — contrats, stockage brut et warehouse
 
-Référence : [architecture des communications](architecture/ARCHITECTURE_DES_COMMUNICATIONS_MICROSERVICES.fr.md), ADR-GLOB-002, 006, 008 et 009.
+## Contrats
 
-Cette configuration décrit la cible, même lorsque les adaptateurs sont absents.
-Les futures implémentations devront lire ces sections via la configuration .NET.
-Ajouter une clé ne crée pas le client, le consommateur ou l'instrumentation.
-Le Compose de `frontend-game` fournit les valeurs de déploiement.
+Le corps RabbitMQ est le Protobuf `leaderboard.collection.v1.GameEventEnvelope`.
+Le package de contrats est construit dans ce dépôt. Aucun package `Combat.Contracts`
+ni dépôt producteur voisin n'est nécessaire. Voir [contrat commun](collection/contrat-commun.md).
 
-## gRPC sortant
+## Réception RabbitMQ (PR #10)
 
-Aucun appel gRPC sortant dans la matrice cible. Les anciennes sections
-`Player`/`Placeholder` sont retirées des paramètres de déploiement.
+Activer `RabbitMq__Enabled=true` et `RawEventConsumer__Enabled=true`.
+Les paramètres de connexion sont `RabbitMq__HostName`, `Port`, `VirtualHost`,
+`UserName` et `Password`. Les exemples complets sont dans
+[.env.rabbitmq.example](../.env.rabbitmq.example) ; ils ne sont pas chargés automatiquement.
 
-## RabbitMQ
+Le consommateur déclare sa file `leaderboard.raw-events` et sa file de rejet
+`leaderboard.raw-events.dead`. Par défaut, il s'abonne aux cinq exchanges durables
+`dungeon.events`, `combat.events`, `player.events`, `rewards.events`, `progression.events`.
+Le binding `#` conserve aussi les versions/types inconnus pour diagnostic.
+`RawEventConsumer__SourceExchanges__0`, etc. permettent la configuration du routage.
+Une liste vide utilise `RabbitMq__ExchangeName` pour un exchange agrégateur provisionné par OPS.
 
-Paramètres communs : `RabbitMq__Enabled`, `RabbitMq__HostName`,
-`RabbitMq__Port`, `RabbitMq__VirtualHost`, `RabbitMq__UserName`,
-`RabbitMq__Password`, `RabbitMq__ExchangeName`.
-Exchange de ce service : `progression.events`.
+`BatchSize=100`, `BatchTimeout=00:00:00.500`, `MaxAttempts=5`,
+`InitialBackoff=00:00:00.500`, `ReconnectDelay=00:00:05` sont les valeurs par défaut.
+L'ACK suit exclusivement l'écriture MongoDB confirmée. Les erreurs d'écriture
+suivent les retries par lot de la PR #10 puis la file de rejet durable.
+Les doublons du journal brut sont conservés. Aucun TTL/purge n'est configuré.
 
-File réservée : `progression.events.v1`.
-Les futurs consommateurs lisent `RabbitMq__QueueName`,
-`RabbitMq__PrefetchCount=16`, `RabbitMq__DeadLetterExchangeName=lantern.dead-letter`,
-`RabbitMq__DeadLetterQueueName=progression.events.v1.dead` et les bindings indexés
-`RabbitMq__Subscriptions__N__ExchangeName` / `RabbitMq__Subscriptions__N__RoutingKey` :
+## MongoDB (PR #10)
 
-| N | Exchange | Routing key |
-| --- | --- | --- |
-| 0 | `player.events` | `player.game-session-started.v1` |
-| 1 | `player.events` | `player.game-session-ended.v1` |
-| 2 | `player.events` | `player.hero-created.v1` |
-| 3 | `player.events` | `player.game-session-member-joined.v1` |
-| 4 | `dungeon.events` | `dungeon.dungeon-run-started.v1` |
-| 5 | `dungeon.events` | `dungeon.room-entered.v1` |
-| 6 | `dungeon.events` | `dungeon.chest-opened.v1` |
-| 7 | `dungeon.events` | `dungeon.dungeon-run-ended.v1` |
-| 8 | `combat.events` | `combat.combat-started.v1` |
-| 9 | `combat.events` | `combat.action-resolved.v1` |
-| 10 | `combat.events` | `combat.combat-completed.v1` |
-| 11 | `rewards.events` | `rewards.reward-granted.v1` |
-| 12 | `rewards.events` | `rewards.inventory-item-consumed.v1` |
-| 13 | `rewards.events` | `rewards.equipment-changed.v1` |
-| 14 | `rewards.events` | `rewards.purchase-completed.v1` |
+`ConnectionStrings__Mongo` contient l'URI du replica set ; `Mongo__DatabaseName`
+vaut `progression_lake` et `Mongo__CollectionName` vaut `raw_events` par défaut.
+Les écritures utilisent majority + journal. Voir [.env.mongodb.example](../.env.mongodb.example).
+Le champ `payload` contient le corps AMQP complet, sans résérialisation.
+Les métadonnées extraites et le statut de validation sont stockés séparément.
 
-Le broker prépare ces files et bindings. Les futurs consommateurs doivent utiliser
-les acquittements manuels après traitement et dédupliquer les messages. La politique
-locale des files quorum limite les redélivrances à 5, puis dead-letter ; les messages
-expirent après 7 jours. La DLQ conserve les messages sans expiration automatique.
+Le rôle applicatif doit autoriser `insert` et `find`, sans update/delete/DDL.
+En développement l'application initialise la collection ; en déploiement, un compte
+de migration exécute `RawEventCollectionInitializer.EnsureAsync` avant le démarrage.
+OPS fournit TLS, secrets, permissions de déclaration RabbitMQ, sauvegardes et capacité.
+Le mode `--migrate` existant applique uniquement les migrations PostgreSQL.
 
-## Autres paramètres fournis par Compose
+## PostgreSQL et reconstruction (PR #14)
 
-- `ConnectionStrings__DefaultConnection` : uniquement la base de ce service.
-- `Kestrel__Endpoints__Http__Url=http://+:8080`, `Protocols=Http1`.
-- `Kestrel__Endpoints__Grpc__Url=http://+:8081`, `Protocols=Http2`.
-- `Cors__AllowedOrigins__0` et `__1` : origines des deux fronts locaux.
-- `Serilog__MinimumLevel__Default` : niveau de logs.
-- `OTEL_SERVICE_NAME=progression`.
-- Variables standard réservées à l'instrumentation OpenTelemetry :
-  `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_SDK_DISABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`,
-  `OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_TRACES_EXPORTER`, `OTEL_METRICS_EXPORTER`,
-  `OTEL_LOGS_EXPORTER`, `OTEL_TRACES_SAMPLER`.
-  SDK désactivé par défaut ; aucun collecteur installé. Pour l'activer, fournir
-  un endpoint joignable depuis le réseau interne et intégrer le SDK dans le service.
+`ConnectionStrings__DefaultConnection` pointe vers PostgreSQL ;
+`ConnectionStrings__PasswordFile` permet un mot de passe monté par secret.
+Voir [ADR-0038](adr/0038-rebuild-the-warehouse-into-a-new-generation-from-the-raw-event-store.md).
 
-Keycloak est validé à la gateway (ADR-GLOB-004), pas dans ce service :
-aucune variable de validation JWT ou de client secret n'est injectée ici.
+- `Warehouse__OperatorRole=operator` : rôle attendu dans `X-Roles` fourni par la gateway.
+- `Warehouse__Rebuild__BatchSize=5000` : événements par transaction/checkpoint.
+- `Warehouse__Rebuild__IsWorkerEnabled=true` : exécution des reconstructions en attente.
+- `Warehouse__Rebuild__PollingInterval=00:00:02`.
+- `Warehouse__Rebuild__HeartbeatTimeout=00:02:00`.
 
-## Image et contrats privés
+La reconstruction conserve générations, activation atomique, reprise et déduplication
+par message de la PR #14. Elle ne redemande pas les événements aux producteurs.
+Le classement reste celui de la dernière génération reconstruite ; aucune projection
+incrémentale supplémentaire n'est introduite par cette fusion.
 
-Le Dockerfile expose 8080 et 8081 en interne ; Compose ne les publie pas sur l'hôte.
-`NuGet.config` réserve les packages de contrats à GitHub Packages.
-Les identifiants passent par le secret BuildKit `github_packages_credentials`,
-injecté dans `NuGetPackageSourceCredentials_github`, au format
-`Username=<login>;Password=<token>;ValidAuthenticationTypes=Basic`.
-Ne pas mettre de jeton dans un ARG, une image ou un fichier versionné.
+## Développement et tests
 
-```sh
-docker build --secret id=github_packages_credentials,env=GITHUB_PACKAGES_CREDENTIALS .
-```
+`docker compose up --build` démarre PostgreSQL, RabbitMQ, MongoDB 8 en replica set
+et l'API HTTP sur 8080. Les accès aux bases et au broker sont limités au loopback.
+Les volumes sont persistants. Ne pas réutiliser un ancien volume Mongo incompatible
+avec la version/configuration du serveur.
+
+Les tests créent des bases et des files isolées. Variables disponibles :
+`LEADERBOARD_TEST_DATABASE_CONNECTION`, `LEADERBOARD_TEST_MONGO_CONNECTION`,
+`LEADERBOARD_TEST_MONGO_USER`, `LEADERBOARD_TEST_MONGO_SECRET`,
+`LEADERBOARD_TEST_RABBITMQ_USER`, `LEADERBOARD_TEST_RABBITMQ_PASSWORD`.
+L'authentification MongoDB est nécessaire pour vérifier les permissions append-only.
+La CI démarre un unique MongoDB avec replica set et authentification.

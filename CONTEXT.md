@@ -97,3 +97,20 @@ _Avoid_: header, wrapper, metadata block
 The major version of a message or HTTP API, carried in its name or route.
 Additive changes keep it; removals and meaning changes require a new one.
 _Avoid_: schema version, revision
+
+### Warehouse
+
+**Warehouse**:
+The player statistics and league table, derived from the raw event store. It is
+a projection: it can always be recalculated, never edited by hand.
+_Avoid_: data warehouse, read model, cache
+
+**Generation**:
+One complete version of the warehouse. Reads use the active generation; a rebuild
+writes a new one and switches to it once complete.
+_Avoid_: snapshot, version, copy
+
+**Rebuild**:
+The recalculation of a whole generation from the raw event store, resumable from
+its last checkpoint.
+_Avoid_: replay, refresh, reprocessing

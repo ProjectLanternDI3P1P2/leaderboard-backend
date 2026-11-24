@@ -1,0 +1,29 @@
+{
+  "envelopeVersion": 1,
+  "messageId": "00000000-0000-4000-8000-000000001027",
+  "transactionId": "00000000-0000-4000-8000-000000000901",
+  "producerSquad": "PRODUCER_SQUAD_COMBAT",
+  "eventType": "combat.skill-used",
+  "eventVersion": 1,
+  "occurredAt": "2026-10-19T13:00:00Z",
+  "correlationId": "00000000-0000-4000-8000-000000000011",
+  "causationId": "00000000-0000-4000-8000-000000000800",
+  "skillUsed": {
+    "combatId": "00000000-0000-4000-8000-000000000032",
+    "commandId": "00000000-0000-4000-8000-000000000055",
+    "actor": {
+      "playerId": "00000000-0000-4000-8000-000000000001",
+      "heroId": "00000000-0000-4000-8000-000000000002",
+      "clanIdAtOccurrence": "00000000-0000-4000-8000-000000000006"
+    },
+    "skillId": "00000000-0000-4000-8000-000000000051",
+    "turnNumber": 1,
+    "targets": [
+      {
+        "monsterInstanceId": "00000000-0000-4000-8000-000000000024",
+        "resolution": "TARGET_RESOLUTION_DODGED"
+      }
+    ],
+    "manaSpent": "3"
+  }
+}

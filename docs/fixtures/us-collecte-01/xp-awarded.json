@@ -1,0 +1,25 @@
+{
+  "envelopeVersion": 1,
+  "messageId": "00000000-0000-4000-8000-000000001025",
+  "transactionId": "00000000-0000-4000-8000-000000000900",
+  "producerSquad": "PRODUCER_SQUAD_PROGRESSION",
+  "eventType": "progression.xp-awarded",
+  "eventVersion": 1,
+  "occurredAt": "2026-10-19T12:01:01Z",
+  "correlationId": "00000000-0000-4000-8000-000000000011",
+  "causationId": "00000000-0000-4000-8000-000000000800",
+  "xpAwarded": {
+    "xpAwardId": "00000000-0000-4000-8000-000000000096",
+    "actor": {
+      "playerId": "00000000-0000-4000-8000-000000000001",
+      "heroId": "00000000-0000-4000-8000-000000000002",
+      "clanIdAtOccurrence": "00000000-0000-4000-8000-000000000003"
+    },
+    "amount": "100",
+    "totalXpAfter": "900",
+    "source": {
+      "type": "REWARD_SOURCE_TYPE_COMBAT",
+      "sourceId": "00000000-0000-4000-8000-000000000030"
+    }
+  }
+}

@@ -28,10 +28,14 @@ test "${applied}" -eq "${expected}"
 timeout 120s dotnet "${output}/Leaderboard.Presentation.dll" --migrate
 test "$(psql -At -c 'SELECT count(*) FROM leaderboard."__EFMigrationsHistory"')" -eq "${applied}"
 
-# Migrate-only must not execute Development seeders.
+# The migration creates the warehouse state singleton before any events exist.
+test "$(psql -At -c 'SELECT count(*) FROM leaderboard.warehouse_state')" -eq 1
+test "$(psql -At -c 'SELECT count(*) FROM leaderboard.warehouse_state WHERE id = 1 AND active_generation_id IS NULL AND previous_generation_id IS NULL AND activated_at IS NULL AND consolidated_until IS NULL')" -eq 1
+
+# Migrate-only must not execute Development seeders or insert other application data.
 counts=$(psql -At -v ON_ERROR_STOP=1 <<'SQL'
 SELECT format('SELECT count(*) FROM %I.%I;', schemaname, tablename)
-FROM pg_tables WHERE schemaname = 'leaderboard' AND tablename <> '__EFMigrationsHistory'
+FROM pg_tables WHERE schemaname = 'leaderboard' AND tablename NOT IN ('__EFMigrationsHistory', 'warehouse_state')
 \gexec
 SQL
 )

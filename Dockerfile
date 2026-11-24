@@ -13,9 +13,7 @@ COPY Leaderboard.Infrastructure/Leaderboard.Infrastructure.csproj Leaderboard.In
 COPY Leaderboard.Presentation/Leaderboard.Presentation.csproj Leaderboard.Presentation/
 COPY Leaderboard.Test/Leaderboard.Test.csproj Leaderboard.Test/
 
-# Leaderboard always consumes the released contract from GitHub Packages.
-RUN --mount=type=secret,id=github_packages_credentials,env=NuGetPackageSourceCredentials_github \
-    dotnet restore Leaderboard.Presentation.slnx
+RUN dotnet restore Leaderboard.Presentation.slnx
 
 COPY . .
 RUN dotnet publish Leaderboard.Presentation/Leaderboard.Presentation.csproj \
@@ -27,7 +25,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled AS runtime
 WORKDIR /app
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_EnableDiagnostics=0
-EXPOSE 8080 8081
+EXPOSE 8080
 USER $APP_UID
 
 COPY --from=build --chown=$APP_UID:$APP_UID /app/publish .

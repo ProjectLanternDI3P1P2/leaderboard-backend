@@ -1,14 +1,11 @@
-using Leaderboard.Application.Messaging;
 using Leaderboard.Domain.Entities;
 using Leaderboard.Domain.Repositories;
 using MediatR;
 
 namespace Leaderboard.Application.Features.PlayerUseCase.CreatePlayer;
 
-public sealed class CreatePlayerCommandHandler(
-    IPlayerRepository playerRepository,
-    IMessagePublisher messagePublisher
-) : IRequestHandler<CreatePlayerCommand>
+public sealed class CreatePlayerCommandHandler(IPlayerRepository playerRepository)
+    : IRequestHandler<CreatePlayerCommand>
 {
     public async Task Handle(CreatePlayerCommand request, CancellationToken cancellationToken)
     {
@@ -22,16 +19,5 @@ public sealed class CreatePlayerCommandHandler(
         };
 
         await playerRepository.AddPlayerAsync(player, cancellationToken);
-
-        await messagePublisher.PublishAsync(
-            PlayerCreatedMessageFactory.Create(
-                player.Id,
-                player.Name,
-                player.Attack,
-                player.Health,
-                player.MaxHealth
-            ),
-            cancellationToken
-        );
     }
 }
