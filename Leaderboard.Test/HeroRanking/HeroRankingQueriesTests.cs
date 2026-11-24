@@ -67,6 +67,15 @@ public sealed class HeroRankingQueriesTests
     {
         await using LeaderboardDbContext database = CreateDatabase();
         database.HeroRankings.Add(Hero("first", "warrior", "me", 300, 20, 10));
+        database.HeroStatisticValues.Add(
+            new HeroStatisticValue
+            {
+                HeroId = "first",
+                Key = "games_played",
+                Value = 99,
+                Origin = HeroStatisticValue.DevelopmentSeedOrigin,
+            }
+        );
         await database.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var queries = new HeroRankingQueries(database);
@@ -81,7 +90,8 @@ public sealed class HeroRankingQueriesTests
         Assert.Equal("first", Assert.Single(publicRanking.Top).HeroId);
         Assert.Equal("first", detail?.HeroId);
         Assert.Equal(300, facts?.XpFromFacts);
-        Assert.Equal(4, statistics.Statistics.Single(item => item.Key == "games_played").Value);
+        Assert.Equal(99, statistics.Statistics.Single(item => item.Key == "games_played").Value);
+        Assert.True(statistics.IsDemo);
     }
 
     private static LeaderboardDbContext CreateDatabase()

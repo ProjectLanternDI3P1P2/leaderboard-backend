@@ -89,6 +89,29 @@ namespace Leaderboard.Infrastructure.Migrations
                     b.ToTable("hero_rankings", (string)null);
                 });
 
+            modelBuilder.Entity("Leaderboard.Domain.Entities.HeroStatisticValue", b =>
+                {
+                    b.Property<string>("HeroId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Key")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<long>("Value")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("HeroId", "Key");
+
+                    b.ToTable("hero_statistic_values", (string)null);
+                });
+
             modelBuilder.Entity("Leaderboard.Domain.Entities.PlayerActionStatistics", b =>
                 {
                     b.Property<Guid>("GenerationId")
@@ -276,6 +299,15 @@ namespace Leaderboard.Infrastructure.Migrations
                     b.HasKey("GenerationId", "MessageId");
 
                     b.ToTable("warehouse_processed_messages", (string)null);
+                });
+
+            modelBuilder.Entity("Leaderboard.Domain.Entities.HeroStatisticValue", b =>
+                {
+                    b.HasOne("Leaderboard.Domain.Entities.HeroRanking", null)
+                        .WithMany()
+                        .HasForeignKey("HeroId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

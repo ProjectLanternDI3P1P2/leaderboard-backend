@@ -180,31 +180,20 @@ public sealed class HeroRankingQueries(LeaderboardDbContext dbContext) : IHeroRa
         HeroRanking? hero = await FindAsync(heroId, cancellationToken);
         if (hero is null)
         {
-            return new HeroStatistics(heroId, null, false, []);
+            return new HeroStatistics(heroId, null, false, false, []);
         }
 
-        long wins = (long)Math.Floor(hero.Runs * hero.WinRate);
+        List<HeroStatisticValue> values = await dbContext
+            .HeroStatisticValues.AsNoTracking()
+            .Where(value => value.HeroId == heroId)
+            .OrderBy(value => value.Key)
+            .ToListAsync(cancellationToken);
         return new HeroStatistics(
             heroId,
             hero.SeededAt,
             false,
-            [
-                new("games_played", hero.Runs),
-                new("games_completed", hero.Runs),
-                new("lobbies_joined", hero.Runs),
-                new("dungeons_started", hero.Runs),
-                new("dungeons_completed", wins),
-                new("rooms_explored", hero.Runs * 8L),
-                new("chests_opened", hero.Runs * 2L),
-                new("combats_fought", hero.Runs * 5L),
-                new("combats_won", wins * 5),
-                new("actions_performed", hero.Runs * 25L),
-                new("consumables_used", hero.Runs),
-                new("rewards_earned", wins * 2),
-                new("items_consumed", hero.Runs),
-                new("purchases_made", hero.Runs / 3),
-                new("equipment_changes", hero.Runs / 2),
-            ]
+            values.Any(value => value.Origin == HeroStatisticValue.DevelopmentSeedOrigin),
+            values.Select(value => new HeroStatistic(value.Key, value.Value)).ToList()
         );
     }
 

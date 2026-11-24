@@ -23,6 +23,7 @@ public static class DatabaseSeedingExtensions
 
         await context.Database.MigrateAsync(cancellationToken);
         await SeedDevelopmentHeroesAsync(context, demoPlayerId, demoPlayerName, cancellationToken);
+        await SeedDevelopmentStatisticsAsync(context, cancellationToken);
     }
 
     private static async Task SeedDevelopmentHeroesAsync(
@@ -136,5 +137,64 @@ public static class DatabaseSeedingExtensions
 
         context.HeroRankings.AddRange(heroes);
         await context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task SeedDevelopmentStatisticsAsync(
+        LeaderboardDbContext context,
+        CancellationToken cancellationToken
+    )
+    {
+        List<HeroRanking> heroes = await context
+            .HeroRankings.AsNoTracking()
+            .Where(hero => hero.HeroId.StartsWith("demo-hero-"))
+            .ToListAsync(cancellationToken);
+        var existing = (
+            await context
+                .HeroStatisticValues.AsNoTracking()
+                .Select(value => new { value.HeroId, value.Key })
+                .ToListAsync(cancellationToken)
+        )
+            .Select(value => (value.HeroId, value.Key))
+            .ToHashSet();
+
+        var missing = heroes
+            .SelectMany(StatisticValues)
+            .Where(value => !existing.Contains((value.HeroId, value.Key)))
+            .ToList();
+        if (missing.Count == 0)
+            return;
+
+        context.HeroStatisticValues.AddRange(missing);
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static IEnumerable<HeroStatisticValue> StatisticValues(HeroRanking hero)
+    {
+        long wins = (long)Math.Floor(hero.Runs * hero.WinRate);
+        (string Key, long Value)[] values =
+        [
+            ("games_played", hero.Runs),
+            ("games_completed", hero.Runs),
+            ("lobbies_joined", hero.Runs),
+            ("dungeons_started", hero.Runs),
+            ("dungeons_completed", wins),
+            ("rooms_explored", hero.Runs * 8L),
+            ("chests_opened", hero.Runs * 2L),
+            ("combats_fought", hero.Runs * 5L),
+            ("combats_won", wins * 5),
+            ("actions_performed", hero.Runs * 25L),
+            ("consumables_used", hero.Runs),
+            ("rewards_earned", wins * 2),
+            ("items_consumed", hero.Runs),
+            ("purchases_made", hero.Runs / 3),
+            ("equipment_changes", hero.Runs / 2),
+        ];
+        return values.Select(value => new HeroStatisticValue
+        {
+            HeroId = hero.HeroId,
+            Key = value.Key,
+            Value = value.Value,
+            Origin = HeroStatisticValue.DevelopmentSeedOrigin,
+        });
     }
 }

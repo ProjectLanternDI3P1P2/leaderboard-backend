@@ -102,6 +102,7 @@ public sealed record HeroStatistics(
     string HeroId,
     DateTimeOffset? ConsolidatedAt,
     bool IsConsolidating,
+    bool IsDemo,
     IReadOnlyList<HeroStatistic> Statistics
 );
 
