@@ -1,8 +1,8 @@
-# Backend Service Template
+# Leaderboard Backend Context
 
-The reference shape of a backend microservice for this project: a .NET Clean
-Architecture solution, the CI pipeline that guards it, and the branching flow
-that releases it. Every service repository starts from this one.
+Leaderboard owns event-derived statistics and league tables. Player owns player
+profiles, heroes, and game sessions. This repository follows the shared .NET
+Clean Architecture and release conventions.
 
 There is no shared backend library, so this template is the only mechanism by
 which the five services share standards. What is written here is what they have

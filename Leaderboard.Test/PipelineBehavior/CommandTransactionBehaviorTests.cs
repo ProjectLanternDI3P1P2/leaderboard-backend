@@ -15,14 +15,14 @@ public sealed class CommandTransactionBehaviorTests
     {
         string databaseName = Guid.NewGuid().ToString();
         await using var dbContext = CreateInMemoryDbContext(databaseName);
-        var behavior = new CommandTransactionBehavior<CreatePlayerCommand, Unit>(dbContext);
-        var player = new Player { Id = Guid.NewGuid(), Name = "Committed" };
+        var behavior = new CommandTransactionBehavior<RequestRebuildCommand, Unit>(dbContext);
+        WarehouseRebuild rebuild = WarehouseRebuild.Request(DateTimeOffset.UtcNow);
 
         var result = await behavior.Handle(
-            new CreatePlayerCommand(player),
+            new RequestRebuildCommand(rebuild),
             _ =>
             {
-                dbContext.Players.Add(player);
+                dbContext.WarehouseRebuilds.Add(rebuild);
                 return Task.FromResult(Unit.Value);
             },
             TestContext.Current.CancellationToken
@@ -31,8 +31,8 @@ public sealed class CommandTransactionBehaviorTests
         result.Should().Be(Unit.Value);
         await using var verificationContext = CreateInMemoryDbContext(databaseName);
         (
-            await verificationContext.Players.FindAsync(
-                [player.Id],
+            await verificationContext.WarehouseRebuilds.FindAsync(
+                [rebuild.Id],
                 TestContext.Current.CancellationToken
             )
         )
@@ -45,15 +45,15 @@ public sealed class CommandTransactionBehaviorTests
     {
         string databaseName = Guid.NewGuid().ToString();
         await using var dbContext = CreateInMemoryDbContext(databaseName);
-        var behavior = new CommandTransactionBehavior<CreatePlayerCommand, Unit>(dbContext);
-        var player = new Player { Id = Guid.NewGuid(), Name = "Not committed" };
+        var behavior = new CommandTransactionBehavior<RequestRebuildCommand, Unit>(dbContext);
+        WarehouseRebuild rebuild = WarehouseRebuild.Request(DateTimeOffset.UtcNow);
 
         Func<Task> action = async () =>
             await behavior.Handle(
-                new CreatePlayerCommand(player),
+                new RequestRebuildCommand(rebuild),
                 _ =>
                 {
-                    dbContext.Players.Add(player);
+                    dbContext.WarehouseRebuilds.Add(rebuild);
                     return Task.FromException<Unit>(
                         new InvalidOperationException("Handler failed.")
                     );
@@ -64,8 +64,8 @@ public sealed class CommandTransactionBehaviorTests
         await action.Should().ThrowAsync<InvalidOperationException>();
         await using var verificationContext = CreateInMemoryDbContext(databaseName);
         (
-            await verificationContext.Players.FindAsync(
-                [player.Id],
+            await verificationContext.WarehouseRebuilds.FindAsync(
+                [rebuild.Id],
                 TestContext.Current.CancellationToken
             )
         )
@@ -82,5 +82,5 @@ public sealed class CommandTransactionBehaviorTests
         return new LeaderboardDbContext(options);
     }
 
-    private sealed record CreatePlayerCommand(Player Player) : ICommand;
+    private sealed record RequestRebuildCommand(WarehouseRebuild Rebuild) : ICommand;
 }

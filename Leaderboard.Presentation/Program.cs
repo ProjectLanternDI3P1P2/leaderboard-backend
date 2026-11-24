@@ -39,7 +39,7 @@ if (migrateOnly)
 
 if (app.Environment.IsDevelopment())
 {
-    await app.Services.MigrateAndSeedDevelopmentDataAsync();
+    await app.Services.MigrateDevelopmentDatabaseAsync();
     await app.Services.EnsureDevelopmentRawEventCollectionAsync();
 }
 

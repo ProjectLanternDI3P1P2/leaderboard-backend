@@ -123,7 +123,7 @@ Retry
 Collection names must be plural.
 
 ```csharp
-IReadOnlyCollection<Player> Players
+IReadOnlyCollection<PlayerStatistics> PlayerStatistics
 IEnumerable<Item> Items
 ```
 
@@ -171,12 +171,11 @@ Queries read state:
 Examples:
 
 ```text
-CreatePlayerCommand
-CreatePlayerCommandHandler
-CreatePlayerValidator
+StartWarehouseRebuildCommand
+StartWarehouseRebuildCommandHandler
 
-GetPlayerByIdQuery
-GetPlayerByIdQueryHandler
+GetLeagueTableQuery
+GetLeagueTableQueryHandler
 ```
 
 ## API contract naming
@@ -186,10 +185,9 @@ Use explicit names.
 Prefer:
 
 ```text
-CreatePlayerRequest
-PlayerDto
-DungeonDto
-CombatDto
+WarehouseRebuildDto
+PlayerStatisticsDto
+LeagueTableDto
 ```
 
 Avoid vague names such as:
@@ -211,9 +209,8 @@ Entity configurations use:
 Examples:
 
 ```text
-PlayerConfiguration
-DungeonConfiguration
-CombatConfiguration
+PlayerStatisticsConfiguration
+WarehouseRebuildConfiguration
 ```
 
 ## Message naming

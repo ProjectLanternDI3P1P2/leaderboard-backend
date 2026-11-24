@@ -1,4 +1,4 @@
-# .NET Backend Service Template
+# Leaderboard Backend
 
 **Démarrage local : [guide rapide en français](docs/demarrage-local.md).**
 
@@ -9,8 +9,9 @@
 Deployment parameters and target service communications are documented in
 [deployment configuration](docs/deployment-configuration.md).
 
-Starting point for a backend microservice: a .NET 10 Clean Architecture solution,
-the CI pipeline that guards it, and the branching flow that releases it.
+The Leaderboard microservice: a .NET 10 Clean Architecture solution, its CI
+pipeline, and its release flow. Player owns player profiles and heroes;
+Leaderboard only stores event-derived player statistics.
 
 Vocabulary is defined in [CONTEXT.md](./CONTEXT.md). Shared technical choices are
 recorded in [BACKEND_TECHNICAL_DECISIONS.md](./docs/BACKEND_TECHNICAL_DECISIONS.md),
@@ -109,7 +110,7 @@ dotnet tool run dotnet-ef migrations add <MigrationName> --project Leaderboard.I
 dotnet tool run dotnet-ef database update --project Leaderboard.Infrastructure --startup-project Leaderboard.Infrastructure
 ```
 
-Development startup applies them before seeding. Production-like deployments must
+Development startup applies them. Production-like deployments must
 run migrations as a controlled rollout step, never by every application instance.
 
 For host-based development, `appsettings.Development.json` targets the Compose

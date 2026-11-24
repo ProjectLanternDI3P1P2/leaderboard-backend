@@ -5,7 +5,7 @@ namespace Leaderboard.Infrastructure.Persistence.Seeding;
 
 public static class DatabaseSeedingExtensions
 {
-    public static async Task MigrateAndSeedDevelopmentDataAsync(
+    public static async Task MigrateDevelopmentDatabaseAsync(
         this IServiceProvider services,
         CancellationToken cancellationToken = default
     )
@@ -15,6 +15,5 @@ public static class DatabaseSeedingExtensions
             scope.ServiceProvider.GetRequiredService<LeaderboardDbContext>();
 
         await context.Database.MigrateAsync(cancellationToken);
-        await DataSeeder.SeedAsync(context, cancellationToken);
     }
 }

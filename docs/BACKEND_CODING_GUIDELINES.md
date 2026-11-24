@@ -77,14 +77,15 @@ Use feature-first organization:
 
 ```text
 Features/
-└── PlayerUseCase/
-    ├── CreatePlayer/
-    │   ├── CreatePlayerCommand.cs
-    │   ├── CreatePlayerCommandHandler.cs
-    │   └── CreatePlayerValidator.cs
-    └── GetPlayerById/
-        ├── GetPlayerByIdQuery.cs
-        └── GetPlayerByIdQueryHandler.cs
+├── WarehouseRebuildUseCase/
+│   └── StartWarehouseRebuild/
+│       ├── StartWarehouseRebuildCommand.cs
+│       └── StartWarehouseRebuildCommandHandler.cs
+└── StatisticsUseCase/
+    └── GetLeagueTable/
+        ├── GetLeagueTableQuery.cs
+        ├── GetLeagueTableQueryHandler.cs
+        └── GetLeagueTableValidator.cs
 ```
 
 Handlers may coordinate domain logic and infrastructure abstractions.
@@ -178,16 +179,15 @@ Use resource-oriented routes.
 Prefer:
 
 ```text
-GET    /api/v1/players/{playerId}
-POST   /api/v1/players
-PUT    /api/v1/players/{playerId}
-DELETE /api/v1/players/{playerId}
+GET  /api/v1/leaderboard
+GET  /api/v1/players/{playerId}/statistics
+POST /api/v1/warehouse/rebuilds
 ```
 
 Avoid action-oriented routes such as:
 
 ```text
-POST /api/v1/createPlayer
+POST /api/v1/startWarehouseRebuild
 GET  /api/v1/getPlayer
 ```
 
