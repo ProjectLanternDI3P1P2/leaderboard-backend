@@ -1,5 +1,6 @@
 using Leaderboard.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Leaderboard.Infrastructure.Persistence.Seeding;
@@ -14,16 +15,43 @@ public static class DatabaseSeedingExtensions
         await using AsyncServiceScope scope = services.CreateAsyncScope();
         LeaderboardDbContext context =
             scope.ServiceProvider.GetRequiredService<LeaderboardDbContext>();
+        IConfiguration configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        string demoPlayerId =
+            configuration["DevelopmentSeed:PlayerId"]
+            ?? throw new InvalidOperationException("DevelopmentSeed:PlayerId is required.");
+        string demoPlayerName = configuration["DevelopmentSeed:PlayerName"] ?? "demo";
 
         await context.Database.MigrateAsync(cancellationToken);
-        await SeedDevelopmentHeroesAsync(context, cancellationToken);
+        await SeedDevelopmentHeroesAsync(context, demoPlayerId, demoPlayerName, cancellationToken);
     }
 
     private static async Task SeedDevelopmentHeroesAsync(
         LeaderboardDbContext context,
+        string demoPlayerId,
+        string demoPlayerName,
         CancellationToken cancellationToken
     )
     {
+        // Repair rows created by the first development seed, which used the
+        // route alias as a database owner and attributed them to every account.
+        List<HeroRanking> legacyOwned = await context
+            .HeroRankings.Where(hero =>
+                hero.PlayerId == "me"
+                && (
+                    hero.HeroId == "demo-hero-007"
+                    || hero.HeroId == "demo-hero-058"
+                    || hero.HeroId == "demo-hero-210"
+                )
+            )
+            .ToListAsync(cancellationToken);
+        foreach (HeroRanking hero in legacyOwned)
+        {
+            hero.PlayerId = demoPlayerId;
+            hero.PlayerName = demoPlayerName;
+        }
+        if (legacyOwned.Count > 0)
+            await context.SaveChangesAsync(cancellationToken);
+
         if (await context.HeroRankings.AnyAsync(cancellationToken))
         {
             return;
@@ -80,11 +108,11 @@ public static class DatabaseSeedingExtensions
                     },
                     PlayerId =
                         deleted ? null
-                        : mine ? "me"
+                        : mine ? demoPlayerId
                         : $"demo-player-{rank % 70:000}",
                     PlayerName =
                         deleted ? null
-                        : mine ? "MaelisRune"
+                        : mine ? demoPlayerName
                         : names[rank % names.Length],
                     AllTimeXp = xp,
                     SeasonXp = seasonXp,

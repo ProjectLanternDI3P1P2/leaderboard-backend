@@ -2,7 +2,6 @@ using Leaderboard.Application.Features.HeroRanking;
 using Leaderboard.Presentation.Controllers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Hosting;
 using Moq;
 
 namespace Leaderboard.Test.HeroRanking;
@@ -12,10 +11,7 @@ public sealed class HeroRankingControllerTests
     [Fact]
     public async Task Statistics_for_another_player_answer_forbidden_without_an_authentication_scheme()
     {
-        var controller = new HeroRankingController(
-            Mock.Of<IHeroRankingQueries>(),
-            Mock.Of<IHostEnvironment>()
-        )
+        var controller = new HeroRankingController(Mock.Of<IHeroRankingQueries>())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };

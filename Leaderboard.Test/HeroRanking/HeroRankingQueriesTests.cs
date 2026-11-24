@@ -13,14 +13,14 @@ public sealed class HeroRankingQueriesTests
         await using LeaderboardDbContext database = CreateDatabase();
         database.HeroRankings.AddRange(
             Hero("first", "warrior", "other", 300, 20, 10),
-            Hero("second", "mage", "me", 200, 40, 5),
+            Hero("second", "mage", "demo-sub", 200, 40, 5),
             Hero("third", "mage", "other", 100, null, null)
         );
         await database.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var queries = new HeroRankingQueries(database);
         var result = await queries.GetPageAsync(
-            "me",
+            "demo-sub",
             "mage",
             "all-time",
             null,
@@ -36,8 +36,20 @@ public sealed class HeroRankingQueriesTests
         Assert.Equal("me", result.Me[0].PlayerId);
         Assert.Equal("second", result.Me[0].HeroId);
 
+        var anotherAccount = await queries.GetPageAsync(
+            "another-sub",
+            "mage",
+            "all-time",
+            null,
+            "level",
+            1,
+            10,
+            TestContext.Current.CancellationToken
+        );
+        Assert.Empty(anotherAccount.Me);
+
         var season = await queries.GetPageAsync(
-            "me",
+            "demo-sub",
             null,
             "season",
             null,

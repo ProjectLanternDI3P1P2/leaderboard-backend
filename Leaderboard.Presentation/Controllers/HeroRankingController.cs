@@ -5,8 +5,7 @@ namespace Leaderboard.Presentation.Controllers;
 
 [ApiController]
 [Route("api/leaderboard/v1")]
-public sealed class HeroRankingController(IHeroRankingQueries queries, IHostEnvironment environment)
-    : ControllerBase
+public sealed class HeroRankingController(IHeroRankingQueries queries) : ControllerBase
 {
     [HttpGet("heroes")]
     public async Task<IActionResult> GetHeroes(
@@ -31,12 +30,9 @@ public sealed class HeroRankingController(IHeroRankingQueries queries, IHostEnvi
         if (sort is not ("total-xp" or "level" or "win-rate" or "last-activity"))
             return BadRequest("Unknown sort.");
 
-        // Every Development account sees the same seeded demonstration player.
-        // Production rows use the identity asserted by the gateway.
-        string owner = environment.IsDevelopment() ? "me" : authenticatedPlayer;
         return Ok(
             await queries.GetPageAsync(
-                owner,
+                authenticatedPlayer,
                 heroClass,
                 period,
                 search,
@@ -61,8 +57,9 @@ public sealed class HeroRankingController(IHeroRankingQueries queries, IHostEnvi
         HeroRankingDetail? detail = await queries.GetDetailAsync(heroId, cancellationToken);
         if (detail is null)
             return NotFound();
-        string owner = environment.IsDevelopment() ? "me" : authenticatedPlayer;
-        return Ok(detail.PlayerId == owner ? detail with { PlayerId = "me" } : detail);
+        return Ok(
+            detail.PlayerId == authenticatedPlayer ? detail with { PlayerId = "me" } : detail
+        );
     }
 
     [HttpGet("heroes/{heroId}/facts")]
@@ -87,8 +84,7 @@ public sealed class HeroRankingController(IHeroRankingQueries queries, IHostEnvi
         if (playerId != "me" && playerId != authenticatedPlayer)
             return StatusCode(StatusCodes.Status403Forbidden);
         HeroRankingDetail? detail = await queries.GetDetailAsync(heroId, cancellationToken);
-        string owner = environment.IsDevelopment() ? "me" : authenticatedPlayer;
-        if (detail is not null && detail.PlayerId != owner)
+        if (detail is not null && detail.PlayerId != authenticatedPlayer)
             return StatusCode(StatusCodes.Status403Forbidden);
         return Ok(await queries.GetStatisticsAsync(heroId, cancellationToken));
     }
