@@ -130,7 +130,10 @@ See [integration decisions](docs/collection/integration-pr-10-14.md),
 The warehouse (player statistics and league table) is recalculated from the raw
 event store; the design is in
 [ADR-0038](./docs/adr/0038-rebuild-the-warehouse-into-a-new-generation-from-the-raw-event-store.md).
-The rebuild endpoints require the `operator` role in the `X-Roles` header.
+The rebuild endpoints require a trusted `X-User-Id` and the `operator` role in
+`X-Roles`. The gateway derives both from the validated Keycloak token. In local
+direct calls, `X-Roles` may be comma-separated; the gateway sends Keycloak's
+`realm_access` JSON object.
 
 | Endpoint | Does |
 | --- | --- |
@@ -141,7 +144,7 @@ The rebuild endpoints require the `operator` role in the `X-Roles` header.
 | `GET /api/v1/leaderboard?page=1&pageSize=20` | League table, from the last consolidated generation |
 
 ```bash
-curl -X POST -H "X-Roles: operator" http://localhost:8080/api/v1/warehouse/rebuilds
+curl -X POST -H "X-User-Id: local-operator" -H "X-Roles: operator" http://localhost:8080/api/v1/warehouse/rebuilds
 ```
 
 The performance test seeds millions of events, so it only runs on demand:

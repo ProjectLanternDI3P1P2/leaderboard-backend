@@ -25,6 +25,7 @@ public sealed class WarehouseEndpointTests : IAsyncLifetime
     private HttpClient Operator()
     {
         HttpClient client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-User-Id", Guid.NewGuid().ToString());
         client.DefaultRequestHeaders.Add("X-Roles", "player, operator");
         return client;
     }
@@ -57,6 +58,7 @@ public sealed class WarehouseEndpointTests : IAsyncLifetime
     {
         // Arrange
         HttpClient client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-User-Id", Guid.NewGuid().ToString());
         client.DefaultRequestHeaders.Add("X-Roles", "player");
 
         // Act
