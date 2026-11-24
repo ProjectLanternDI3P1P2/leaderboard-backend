@@ -1,9 +1,18 @@
 using Leaderboard.Application;
 using Leaderboard.Infrastructure;
 using Leaderboard.Infrastructure.Persistence;
+using Leaderboard.Infrastructure.Persistence.Mongo;
 using Leaderboard.Infrastructure.Persistence.Seeding;
 using Leaderboard.Presentation.Extensions;
+using Leaderboard.Presentation.Health;
 using Microsoft.EntityFrameworkCore;
+
+if (args.Contains("--healthcheck", StringComparer.Ordinal))
+{
+    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+    Environment.ExitCode = await ReadinessProbe.IsReadyAsync(client) ? 0 : 1;
+    return;
+}
 
 bool migrateOnly = args.Contains("--migrate", StringComparer.Ordinal);
 var builder = WebApplication.CreateBuilder(
@@ -38,7 +47,8 @@ if (migrateOnly)
 
 if (app.Environment.IsDevelopment())
 {
-    await app.Services.MigrateAndSeedDevelopmentDataAsync();
+    await app.Services.MigrateDevelopmentDatabaseAsync();
+    await app.Services.EnsureDevelopmentRawEventCollectionAsync();
 }
 
 app.ConfigureStart();

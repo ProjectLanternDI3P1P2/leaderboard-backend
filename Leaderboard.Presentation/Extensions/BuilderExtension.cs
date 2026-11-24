@@ -1,5 +1,5 @@
+using System.Text.Json.Serialization;
 using Leaderboard.Presentation.Extensions.LogExtension;
-using Leaderboard.Presentation.Grpc.Interceptors;
 using Leaderboard.Presentation.Middleware;
 using Serilog;
 
@@ -9,21 +9,19 @@ public static class BuilderExtension
 {
     public static WebApplicationBuilder ConfigureApi(this WebApplicationBuilder builder)
     {
-        builder.Services.AddControllers();
+        // String enums in HTTP JSON (ADR-0035).
+        builder
+            .Services.AddControllers()
+            .AddJsonOptions(options =>
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter())
+            );
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddOpenApi();
         builder.Services.AddHealthChecks();
-        builder.Services.AddGrpc(options =>
-        {
-            options.Interceptors.Add<CorrelationIdInterceptor>();
-            options.Interceptors.Add<GrpcExceptionInterceptor>();
-        });
 
         ConfigureLogger(builder);
 
         builder.Services.AddTransient<ExceptionHandlingMiddleware>();
-        builder.Services.AddTransient<CorrelationIdInterceptor>();
-        builder.Services.AddTransient<GrpcExceptionInterceptor>();
         builder.Services.AddHttpClient();
 
         return builder;

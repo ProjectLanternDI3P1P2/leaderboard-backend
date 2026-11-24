@@ -1,0 +1,103 @@
+{
+  "RunId": "6fdb38fc-d57e-44d9-b857-7033395375bd",
+  "Database": "collection_load_6fdb38fcd57e44d9b8577033395375bd",
+  "Queue": "collection_load_6fdb38fcd57e44d9b8577033395375bd",
+  "StartedAt": "2026-10-21T09:16:39.8871242+00:00",
+  "ScheduledRate": 50,
+  "ScheduledDurationSeconds": 600,
+  "ActualDurationSeconds": 600.0009589,
+  "Published": 30000,
+  "Stored": 30000,
+  "PublishedBytes": 8190000,
+  "StoredBytes": 8190000,
+  "ConfirmedInserts": 30000,
+  "ActualPublishRatePerSecond": 49.99992009179437,
+  "UniqueReceiptIds": 30000,
+  "UniqueMessageIds": 30000,
+  "ByteMismatches": 0,
+  "MetadataMismatches": 0,
+  "Backlog": 0,
+  "ActiveConsumersAfterStop": 0,
+  "Quarantined": 0,
+  "MinuteWindows": [
+    {
+      "Minute": 1,
+      "Count": 3000,
+      "ReceptionP95Milliseconds": 21.7364,
+      "ConfirmedInsertCount": 3000,
+      "ConfirmedInsertP95Milliseconds": 32.3356
+    },
+    {
+      "Minute": 2,
+      "Count": 3000,
+      "ReceptionP95Milliseconds": 17.7497,
+      "ConfirmedInsertCount": 3000,
+      "ConfirmedInsertP95Milliseconds": 27.3412
+    },
+    {
+      "Minute": 3,
+      "Count": 3000,
+      "ReceptionP95Milliseconds": 19.5645,
+      "ConfirmedInsertCount": 3000,
+      "ConfirmedInsertP95Milliseconds": 30.4336
+    },
+    {
+      "Minute": 4,
+      "Count": 3000,
+      "ReceptionP95Milliseconds": 21.6284,
+      "ConfirmedInsertCount": 3000,
+      "ConfirmedInsertP95Milliseconds": 32.0258
+    },
+    {
+      "Minute": 5,
+      "Count": 3000,
+      "ReceptionP95Milliseconds": 20.4375,
+      "ConfirmedInsertCount": 3000,
+      "ConfirmedInsertP95Milliseconds": 30.9959
+    },
+    {
+      "Minute": 6,
+      "Count": 3000,
+      "ReceptionP95Milliseconds": 23.1521,
+      "ConfirmedInsertCount": 3000,
+      "ConfirmedInsertP95Milliseconds": 34.3989
+    },
+    {
+      "Minute": 7,
+      "Count": 3000,
+      "ReceptionP95Milliseconds": 18.243,
+      "ConfirmedInsertCount": 3000,
+      "ConfirmedInsertP95Milliseconds": 27.7365
+    },
+    {
+      "Minute": 8,
+      "Count": 3000,
+      "ReceptionP95Milliseconds": 19.4975,
+      "ConfirmedInsertCount": 3000,
+      "ConfirmedInsertP95Milliseconds": 29.3361
+    },
+    {
+      "Minute": 9,
+      "Count": 3000,
+      "ReceptionP95Milliseconds": 17.2291,
+      "ConfirmedInsertCount": 3000,
+      "ConfirmedInsertP95Milliseconds": 26.8297
+    },
+    {
+      "Minute": 10,
+      "Count": 3000,
+      "ReceptionP95Milliseconds": 18.0749,
+      "ConfirmedInsertCount": 3000,
+      "ConfirmedInsertP95Milliseconds": 27.9661
+    }
+  ],
+  "ConfirmedInsertP95SlopeMillisecondsPerMinute": -0.35065696969696963,
+  "ConfirmedInsertLastMinusFirstP95Milliseconds": -4.369499999999999,
+  "MaxPublishLatenessMilliseconds": 2592.7408,
+  "Tolerance": {
+    "MaximumSlopeMsPerMinute": 0,
+    "MaximumEndWindowRegressionMs": 0,
+    "MaximumPublishLatenessMs": 200
+  },
+  "Result": "FAIL"
+}

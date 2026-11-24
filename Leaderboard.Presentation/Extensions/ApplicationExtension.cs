@@ -15,7 +15,6 @@ public static class ApplicationExtension
         }
 
         app.MapControllers();
-        app.MapGrpcServices();
         app.MapHealthChecks("/health/live");
         app.MapHealthChecks("/health/ready");
 

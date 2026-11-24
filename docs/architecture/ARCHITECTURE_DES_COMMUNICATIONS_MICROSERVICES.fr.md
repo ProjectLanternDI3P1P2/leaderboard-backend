@@ -78,7 +78,7 @@ Une `GameSession` n'est ni une session de connexion ni un `DungeonRun`. Player p
 |---|---|---|
 | `/api/player/...` | Player | Profil, création, lecture et sélection héros |
 | `/api/rewards/...` | Rewards | Inventaire, équiper/déséquiper hors combat, marketplace/achat |
-| `/api/progression/...` | Progression | XP, historique, leaderboard |
+| `/api/leaderboard/v1/...` | Leaderboard | Statistiques et classement |
 | Endpoints OIDC | Keycloak | Connexion, acquisition/renouvellement token |
 
 Les payloads REST sont JSON. Les contrôleurs sont des frontières applicatives fines et ne doivent pas dupliquer en HTTP une commande de gameplay déjà portée par un Hub.

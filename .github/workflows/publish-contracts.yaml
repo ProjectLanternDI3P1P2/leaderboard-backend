@@ -2,7 +2,7 @@ name: Publish Leaderboard contracts
 
 on:
   push:
-    tags: ["contracts-v*"]
+    tags: ["leaderboard-contracts-v*"]
 
 permissions:
   contents: read
@@ -17,14 +17,22 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
 
-      - name: Pack Leaderboard.Contracts
-        run: dotnet pack Leaderboard.Contracts/Leaderboard.Contracts.csproj --configuration Release --output artifacts/contracts
+      - name: Verify release belongs to main
+        run: git merge-base --is-ancestor HEAD origin/main
+
+      - name: Pack and verify standalone consumer
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: ./scripts/contracts/verify-package.ps1 -OutputDirectory "$env:RUNNER_TEMP/contracts" -ExpectedTag $env:RELEASE_TAG
 
       - name: Publish package to GitHub Packages
         env:
           NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: dotnet nuget push "artifacts/contracts/*.nupkg" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key "$NUGET_AUTH_TOKEN" --skip-duplicate
+          PACKAGE_OWNER: ${{ github.repository_owner }}
+        run: dotnet nuget push "$RUNNER_TEMP/contracts/*.nupkg" --source "https://nuget.pkg.github.com/$PACKAGE_OWNER/index.json" --api-key "$NUGET_AUTH_TOKEN"

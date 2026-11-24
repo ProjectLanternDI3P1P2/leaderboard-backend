@@ -16,6 +16,14 @@ coverage/
 appsettings.Local.json
 *.Development.local.json
 
+# Local environment values; commit only examples without credentials.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
 logs/
 *.log
 coverage.xml
+
+/documentation/

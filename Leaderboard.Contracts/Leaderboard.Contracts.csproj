@@ -7,12 +7,16 @@
     <Version>1.0.0</Version>
     <!-- x-release-please-end -->
     <PackageId>Leaderboard.Contracts</PackageId>
-    <Description>Shared Protobuf contracts for Leaderboard integration events.</Description>
-    <PackageTags>grpc;protobuf;rabbitmq;events;contracts</PackageTags>
+    <Description>Shared Leaderboard ingestion contracts: 16 Protobuf events and validation for Dungeon, Combat, Player, Rewards and Progression.</Description>
+    <PackageTags>protobuf;rabbitmq;events;contracts</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/ProjectLanternDI3P1P2/leaderboard-backend</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
     <PackageReference Include="Google.Protobuf" Version="3.33.2" />
     <PackageReference Include="Grpc.Tools" Version="2.76.0">
       <PrivateAssets>all</PrivateAssets>
@@ -22,5 +26,7 @@
   <ItemGroup>
     <Protobuf Include="Protos/leaderboard_events_v1.proto" GrpcServices="None" />
     <None Include="Protos/leaderboard_events_v1.proto" Pack="true" PackagePath="proto" />
+    <Protobuf Include="Protos/collection_events_v1.proto" GrpcServices="None" />
+    <None Include="Protos/collection_events_v1.proto" Pack="true" PackagePath="proto" />
   </ItemGroup>
 </Project>

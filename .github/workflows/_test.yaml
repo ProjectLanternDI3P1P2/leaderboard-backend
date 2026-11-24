@@ -5,13 +5,21 @@ on:
 
 permissions:
   contents: read
-  packages: read
 
 jobs:
   test:
     name: dotnet test
     runs-on: ubuntu-latest
     services:
+      rabbitmq:
+        image: rabbitmq:4-management-alpine
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
       postgres:
         image: postgres:17-alpine
         env:
@@ -34,20 +42,26 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
 
-      - name: Configure GitHub Packages
-        env:
-          NUGET_USERNAME: ${{ github.actor }}
-          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          dotnet nuget remove source github || true
-          dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --name github --username "$NUGET_USERNAME" --password "$NUGET_AUTH_TOKEN" --store-password-in-clear-text
+      # Mongo needs a replica set for majority writes, and a service container cannot run
+      # rs.initiate, so it is started here. Authentication is on so that the role test
+      # proves the application account cannot update or delete stored events
+      # (US-DATA-01); the admin password is random per run, so nothing is committed.
+      - name: Start MongoDB replica set
+        timeout-minutes: 3
+        run: bash .github/scripts/start-mongodb-replica-set.sh
 
       # Coverage is not collected here — the Sonar workflow collects it while wrapping
       # its own build, and doing it twice would only slow this job down.
       - name: Run tests
         env:
           LEADERBOARD_TEST_DATABASE_CONNECTION: Host=localhost;Port=5432;Database=leaderboard_test;Username=leaderboard
+          LEADERBOARD_TEST_RABBITMQ_USER: guest
+          LEADERBOARD_TEST_RABBITMQ_PASSWORD: guest
         run: dotnet test --solution Leaderboard.Presentation.slnx
 
       - name: Verify production migration command against disposable PostgreSQL
         run: bash .github/scripts/test-migration-command.sh
+
+      - name: Stop MongoDB replica set
+        if: always()
+        run: docker rm -f mongodb 2>/dev/null || true

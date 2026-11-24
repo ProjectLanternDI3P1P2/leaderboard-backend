@@ -1,0 +1,17 @@
+{
+  "envelopeVersion": 1,
+  "messageId": "00000000-0000-4000-8000-000000001037",
+  "transactionId": "00000000-0000-4000-8000-000000000900",
+  "producerSquad": "PRODUCER_SQUAD_DUNGEON",
+  "eventType": "dungeon.dungeon-run-started",
+  "eventVersion": 1,
+  "occurredAt": "2026-10-19T12:01:01Z",
+  "correlationId": "00000000-0000-4000-8000-000000000011",
+  "causationId": "00000000-0000-4000-8000-000000000800",
+  "dungeonRunStarted": {
+    "dungeonId": "00000000-0000-4000-8000-000000000010",
+    "gameSessionId": "00000000-0000-4000-8000-000000000011",
+    "initialFloorNumber": 1,
+    "participants": []
+  }
+}

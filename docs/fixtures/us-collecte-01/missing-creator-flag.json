@@ -1,0 +1,18 @@
+{
+  "envelopeVersion": 1,
+  "messageId": "00000000-0000-4000-8000-000000001033",
+  "transactionId": "00000000-0000-4000-8000-000000000900",
+  "producerSquad": "PRODUCER_SQUAD_PLAYER",
+  "eventType": "player.game-session-participant-joined",
+  "eventVersion": 1,
+  "occurredAt": "2026-10-19T11:51:00Z",
+  "correlationId": "00000000-0000-4000-8000-000000000011",
+  "causationId": "00000000-0000-4000-8000-000000000800",
+  "participantJoined": {
+    "gameSessionId": "00000000-0000-4000-8000-000000000011",
+    "actor": {
+      "playerId": "00000000-0000-4000-8000-000000000004",
+      "heroId": "00000000-0000-4000-8000-000000000005"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "envelopeVersion": 1,
+  "messageId": "00000000-0000-4000-8000-000000001028",
+  "transactionId": "00000000-0000-4000-8000-000000000900",
+  "producerSquad": "PRODUCER_SQUAD_PLAYER",
+  "eventType": "player.hero-created",
+  "eventVersion": 1,
+  "occurredAt": "2025-10-19T12:00:00Z",
+  "correlationId": "00000000-0000-4000-8000-000000000011",
+  "causationId": "00000000-0000-4000-8000-000000000800",
+  "heroCreated": {
+    "actor": {
+      "playerId": "00000000-0000-4000-8000-000000000004",
+      "heroId": "00000000-0000-4000-8000-000000000005"
+    },
+    "heroClassId": "00000000-0000-4000-8000-000000000080"
+  }
+}

@@ -1,12 +1,11 @@
-# Backend Service Template
+# Leaderboard Backend Context
 
-The reference shape of a backend microservice for this project: a .NET Clean
-Architecture solution, the CI pipeline that guards it, and the branching flow
-that releases it. Every service repository starts from this one.
+Leaderboard owns event-derived statistics and league tables. Player owns player
+profiles, heroes, and game sessions. This repository follows the shared .NET
+Clean Architecture and release conventions.
 
-There is no shared backend library, so this template is the only mechanism by
-which the five services share standards. What is written here is what they have
-in common.
+There is no shared backend library. The service repositories share standards
+through their documented conventions and decisions.
 
 ## Language
 
@@ -97,3 +96,20 @@ _Avoid_: header, wrapper, metadata block
 The major version of a message or HTTP API, carried in its name or route.
 Additive changes keep it; removals and meaning changes require a new one.
 _Avoid_: schema version, revision
+
+### Warehouse
+
+**Warehouse**:
+The player statistics and league table, derived from the raw event store. It is
+a projection: it can always be recalculated, never edited by hand.
+_Avoid_: data warehouse, read model, cache
+
+**Generation**:
+One complete version of the warehouse. Reads use the active generation; a rebuild
+writes a new one and switches to it once complete.
+_Avoid_: snapshot, version, copy
+
+**Rebuild**:
+The recalculation of a whole generation from the raw event store, resumable from
+its last checkpoint.
+_Avoid_: replay, refresh, reprocessing

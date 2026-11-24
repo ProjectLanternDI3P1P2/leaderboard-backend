@@ -77,14 +77,15 @@ Use feature-first organization:
 
 ```text
 Features/
-└── PlayerUseCase/
-    ├── CreatePlayer/
-    │   ├── CreatePlayerCommand.cs
-    │   ├── CreatePlayerCommandHandler.cs
-    │   └── CreatePlayerValidator.cs
-    └── GetPlayerById/
-        ├── GetPlayerByIdQuery.cs
-        └── GetPlayerByIdQueryHandler.cs
+├── WarehouseRebuildUseCase/
+│   └── StartWarehouseRebuild/
+│       ├── StartWarehouseRebuildCommand.cs
+│       └── StartWarehouseRebuildCommandHandler.cs
+└── StatisticsUseCase/
+    └── GetLeagueTable/
+        ├── GetLeagueTableQuery.cs
+        ├── GetLeagueTableQueryHandler.cs
+        └── GetLeagueTableValidator.cs
 ```
 
 Handlers may coordinate domain logic and infrastructure abstractions.
@@ -178,22 +179,21 @@ Use resource-oriented routes.
 Prefer:
 
 ```text
-GET    /api/v1/players/{playerId}
-POST   /api/v1/players
-PUT    /api/v1/players/{playerId}
-DELETE /api/v1/players/{playerId}
+GET  /api/leaderboard/v1/leaderboard
+GET  /api/leaderboard/v1/players/{playerId}/statistics
+POST /api/leaderboard/v1/warehouse/rebuilds
 ```
 
 Avoid action-oriented routes such as:
 
 ```text
-POST /api/v1/createPlayer
-GET  /api/v1/getPlayer
+POST /api/leaderboard/v1/startWarehouseRebuild
+GET  /api/leaderboard/v1/getLeaderboard
 ```
 
 Rules:
 
-- all APIs start at `/api/v1/...`;
+- Leaderboard client-facing APIs start at `/api/leaderboard/v1/...`;
 - route resources use lowercase plural nouns;
 - use explicit route identifiers when useful;
 - do not expose EF Core entities directly;

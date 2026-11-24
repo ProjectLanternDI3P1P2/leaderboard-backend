@@ -1,4 +1,5 @@
 using FluentValidation;
+using Leaderboard.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using ILogger = Serilog.ILogger;
 
@@ -17,6 +18,11 @@ public sealed class ExceptionHandlingMiddleware(ILogger logger, IHostEnvironment
         {
             logger.Warning(exception, "Resource not found");
             await HandleNotFoundExceptionAsync(context, exception);
+        }
+        catch (ConflictException exception)
+        {
+            logger.Warning(exception, "Request conflicts with the resource state");
+            await HandleConflictExceptionAsync(context, exception);
         }
         catch (ValidationException exception)
         {
@@ -45,6 +51,25 @@ public sealed class ExceptionHandlingMiddleware(ILogger logger, IHostEnvironment
         };
 
         context.Response.StatusCode = StatusCodes.Status404NotFound;
+        context.Response.ContentType = "application/problem+json";
+        await context.Response.WriteAsJsonAsync(problemDetails, context.RequestAborted);
+    }
+
+    private static async Task HandleConflictExceptionAsync(
+        HttpContext context,
+        ConflictException exception
+    )
+    {
+        var problemDetails = new ProblemDetails
+        {
+            Type = "https://httpstatuses.com/409",
+            Title = "Conflict",
+            Detail = exception.Message,
+            Status = StatusCodes.Status409Conflict,
+            Instance = context.Request.Path,
+        };
+
+        context.Response.StatusCode = StatusCodes.Status409Conflict;
         context.Response.ContentType = "application/problem+json";
         await context.Response.WriteAsJsonAsync(problemDetails, context.RequestAborted);
     }

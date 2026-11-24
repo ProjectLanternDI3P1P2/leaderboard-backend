@@ -1,5 +1,6 @@
 using System.Reflection;
 using FluentValidation;
+using Leaderboard.Application.Features.WarehouseRebuildUseCase.RunWarehouseRebuild;
 using Leaderboard.Application.PipelineBehavior;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,7 +10,10 @@ public static class ApplicationServiceRegistration
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        return services.ConfigureMediatR().ConfigureFluentValidation();
+        return services
+            .ConfigureMediatR()
+            .ConfigureFluentValidation()
+            .AddScoped<WarehouseRebuildRunner>();
     }
 
     private static IServiceCollection ConfigureMediatR(this IServiceCollection services)
