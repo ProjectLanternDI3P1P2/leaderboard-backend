@@ -11,8 +11,7 @@ namespace Leaderboard.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "Players");
+            migrationBuilder.DropTable(name: "Players");
         }
 
         /// <inheritdoc />
@@ -26,12 +25,17 @@ namespace Leaderboard.Infrastructure.Migrations
                     PlayerAttack = table.Column<int>(type: "integer", nullable: false),
                     PlayerHealth = table.Column<int>(type: "integer", nullable: false),
                     PlayerMaxHealth = table.Column<int>(type: "integer", nullable: false),
-                    PlayerName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false)
+                    PlayerName = table.Column<string>(
+                        type: "character varying(100)",
+                        maxLength: 100,
+                        nullable: false
+                    ),
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Players", x => x.PlayerId);
-                });
+                }
+            );
         }
     }
 }
