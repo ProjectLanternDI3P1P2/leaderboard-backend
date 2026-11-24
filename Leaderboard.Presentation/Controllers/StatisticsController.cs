@@ -8,7 +8,7 @@ namespace Leaderboard.Presentation.Controllers;
 
 /// <summary>Reads the last consolidated warehouse generation, never a rebuild in progress.</summary>
 [ApiController]
-[Route("api/v1")]
+[Route("api/leaderboard/v1")]
 public sealed class StatisticsController(IMediator mediator) : ControllerBase
 {
     [HttpGet("players/{playerId}/statistics")]

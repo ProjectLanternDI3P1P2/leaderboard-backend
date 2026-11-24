@@ -2,9 +2,7 @@ using MediatR;
 
 namespace Leaderboard.Application.Abstractions;
 
-/// <summary>Marks a request as a command: it runs inside the command transaction boundary.</summary>
-public interface ITransactionalRequest;
+/// <summary>Marks a request as a command that runs inside the transaction boundary.</summary>
+public interface ICommand : IRequest;
 
-public interface ICommand : IRequest, ITransactionalRequest;
-
-public interface ICommand<out TResponse> : IRequest<TResponse>, ITransactionalRequest;
+public interface ICommand<out TResponse> : ICommand, IRequest<TResponse>;

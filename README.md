@@ -1,4 +1,4 @@
-# .NET Backend Service Template
+# Leaderboard Backend
 
 **Démarrage local : [guide rapide en français](docs/demarrage-local.md).**
 
@@ -9,8 +9,9 @@
 Deployment parameters and target service communications are documented in
 [deployment configuration](docs/deployment-configuration.md).
 
-Starting point for a backend microservice: a .NET 10 Clean Architecture solution,
-the CI pipeline that guards it, and the branching flow that releases it.
+The Leaderboard microservice: a .NET 10 Clean Architecture solution, its CI
+pipeline, and its release flow. Player owns player profiles and heroes;
+Leaderboard only stores event-derived player statistics.
 
 Vocabulary is defined in [CONTEXT.md](./CONTEXT.md). Shared technical choices are
 recorded in [BACKEND_TECHNICAL_DECISIONS.md](./docs/BACKEND_TECHNICAL_DECISIONS.md),
@@ -109,7 +110,7 @@ dotnet tool run dotnet-ef migrations add <MigrationName> --project Leaderboard.I
 dotnet tool run dotnet-ef database update --project Leaderboard.Infrastructure --startup-project Leaderboard.Infrastructure
 ```
 
-Development startup applies them before seeding. Production-like deployments must
+Development startup applies them. Production-like deployments must
 run migrations as a controlled rollout step, never by every application instance.
 
 For host-based development, `appsettings.Development.json` targets the Compose
@@ -129,18 +130,21 @@ See [integration decisions](docs/collection/integration-pr-10-14.md),
 The warehouse (player statistics and league table) is recalculated from the raw
 event store; the design is in
 [ADR-0038](./docs/adr/0038-rebuild-the-warehouse-into-a-new-generation-from-the-raw-event-store.md).
-The rebuild endpoints require the `operator` role in the `X-Roles` header.
+The rebuild endpoints require a trusted `X-User-Id` and the `operator` role in
+`X-Roles`. The gateway derives both from the validated Keycloak token. In local
+direct calls, `X-Roles` may be comma-separated; the gateway sends Keycloak's
+`realm_access` JSON object.
 
 | Endpoint | Does |
 | --- | --- |
-| `POST /api/v1/warehouse/rebuilds` | Requests a full rebuild (202, or 409 if one is pending or running) |
-| `POST /api/v1/warehouse/rebuilds/{id}/resume` | Resumes an interrupted or failed rebuild from its checkpoint |
-| `GET /api/v1/warehouse/rebuilds/{id}` | Report: status, events processed, applied, deduplicated, ignored, most recent one |
-| `GET /api/v1/players/{playerId}/statistics` | Statistics of a player, from the last consolidated generation |
-| `GET /api/v1/leaderboard?page=1&pageSize=20` | League table, from the last consolidated generation |
+| `POST /api/leaderboard/v1/warehouse/rebuilds` | Requests a full rebuild (202, or 409 if one is pending or running) |
+| `POST /api/leaderboard/v1/warehouse/rebuilds/{id}/resume` | Resumes an interrupted or failed rebuild from its checkpoint |
+| `GET /api/leaderboard/v1/warehouse/rebuilds/{id}` | Report: status, events processed, applied, deduplicated, ignored, most recent one |
+| `GET /api/leaderboard/v1/players/{playerId}/statistics` | Statistics of a player, from the last consolidated generation |
+| `GET /api/leaderboard/v1/leaderboard?page=1&pageSize=20` | League table, from the last consolidated generation |
 
 ```bash
-curl -X POST -H "X-Roles: operator" http://localhost:8080/api/v1/warehouse/rebuilds
+curl -X POST -H "X-User-Id: local-operator" -H "X-Roles: operator" http://localhost:8080/api/leaderboard/v1/warehouse/rebuilds
 ```
 
 The performance test seeds millions of events, so it only runs on demand:

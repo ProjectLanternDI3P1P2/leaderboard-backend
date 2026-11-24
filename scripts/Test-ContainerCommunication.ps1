@@ -6,8 +6,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$playerId = [Guid]::NewGuid().ToString()
-$queueName = "smoke-$playerId"
+$messageId = [Guid]::NewGuid().ToString()
+$queueName = "smoke-$messageId"
 $basic = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("${RabbitUser}:${RabbitPassword}"))
 $headers = @{ Authorization = "Basic $basic" }
 $queueUrl = "$RabbitUrl/api/queues/%2F/$queueName"
@@ -31,21 +31,17 @@ try {
     $null = Invoke-Rabbit PUT $queueUrl @{ durable = $true; auto_delete = $false; arguments = @{} }
     $queueCreated = $true
 
-    $body = @{ id = $playerId; name = 'ContainerSmokeTest'; attack = 10; health = 100; maxHealth = 100 }
-    $created = Invoke-WebRequest "$ApiUrl/api/v1/players" -Method POST -ContentType 'application/json' `
-        -Body (ConvertTo-Json $body) -UseBasicParsing -TimeoutSec 30
-    if ($created.StatusCode -ne 201) { throw "Expected HTTP 201, got $($created.StatusCode)." }
-    $player = Invoke-RestMethod "$ApiUrl/api/v1/players/$playerId" -TimeoutSec 15
-    if ($player.id -ne $playerId -or $player.name -ne $body.name) { throw 'REST read-back mismatch.' }
-    Write-Output "PASS API create HTTP 201 and GET read-back: $playerId"
+    $table = Invoke-RestMethod "$ApiUrl/api/leaderboard/v1/leaderboard?page=1&pageSize=10" -TimeoutSec 15
+    if ($null -eq $table.entries -or $null -eq $table.totalPlayers) { throw 'Leaderboard response mismatch.' }
+    Write-Output 'PASS API league table GET HTTP 200.'
 
-    $sql = "SELECT COUNT(*) FROM ""Players"" WHERE ""PlayerId"" = '$playerId' AND ""PlayerName"" = 'ContainerSmokeTest';"
+    $sql = 'SELECT COUNT(*) FROM warehouse_state WHERE id = 1;'
     $count = $sql | & docker compose exec -T postgres psql -U leaderboard -d leaderboard -tA -v ON_ERROR_STOP=1
     if ($LASTEXITCODE -ne 0 -or ($count -join '').Trim() -ne '1') { throw "PostgreSQL verification failed: $count" }
-    Write-Output 'PASS API -> PostgreSQL: exactly one matching persisted player.'
+    Write-Output 'PASS PostgreSQL warehouse state is initialized.'
 
     $published = Invoke-Rabbit POST "$RabbitUrl/api/exchanges/%2F/amq.default/publish" @{
-        properties = @{}; routing_key = $queueName; payload = $playerId; payload_encoding = 'string'
+        properties = @{}; routing_key = $queueName; payload = $messageId; payload_encoding = 'string'
     }
     if (-not $published.routed) { throw 'RabbitMQ did not route the test message.' }
     $messages = @(Invoke-Rabbit POST "$queueUrl/get" @{
@@ -53,12 +49,11 @@ try {
     })
     if ($messages.Count -ne 1) { throw 'Expected one RabbitMQ message.' }
     $bytes = [Convert]::FromBase64String($messages[0].payload)
-    if ([Text.Encoding]::UTF8.GetString($bytes) -ne $playerId) {
+    if ([Text.Encoding]::UTF8.GetString($bytes) -ne $messageId) {
         throw 'RabbitMQ payload mismatch.'
     }
     Write-Output 'PASS RabbitMQ management publish -> test queue -> consume: unchanged payload.'
-    Write-Output 'NOTE: RabbitMQ is tested independently; no application publisher/consumer is implemented.'
-    Write-Output "NOTE: test player retained in the local database: $playerId"
+    Write-Output 'NOTE: RabbitMQ management routing is tested independently of the event consumer.'
 }
 finally {
     if ($queueCreated) { $null = Invoke-Rabbit DELETE $queueUrl $null }

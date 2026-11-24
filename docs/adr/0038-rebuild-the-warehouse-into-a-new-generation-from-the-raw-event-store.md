@@ -27,17 +27,18 @@ squads to resend anything (US-DATA-03).
 - **Exact sums.** Values are summed per player and event type as `decimal` and stored as unbounded
   `numeric`: a resumed rebuild, whose batches differ, ends with exactly the totals
   of an uninterrupted one.
-- **Execution.** `POST /api/v1/warehouse/rebuilds` records a pending rebuild; a
+- **Execution.** `POST /api/leaderboard/v1/warehouse/rebuilds` records a pending rebuild; a
   background worker in each instance starts the oldest pending one. A unique
   partial index allows at most one pending or running rebuild, and the `xmin`
   concurrency token lets only one replica start it. A running rebuild without a
   heartbeat for `HeartbeatTimeout` lost its worker and is marked interrupted; the
-  operator resumes it with `POST /api/v1/warehouse/rebuilds/{id}/resume`.
-- **Report.** `GET /api/v1/warehouse/rebuilds/{id}` returns the events processed,
+  operator resumes it with `POST /api/leaderboard/v1/warehouse/rebuilds/{id}/resume`.
+- **Report.** `GET /api/leaderboard/v1/warehouse/rebuilds/{id}` returns the events processed,
   applied, deduplicated and ignored, and the receipt date of the most recent one.
-- **Authorization.** The rebuild endpoints require the global role configured in
-  `Warehouse:OperatorRole` (default `operator`), read from the `X-Roles` header the
-  gateway injects (ADR-GLOB-004).
+- **Authorization.** The rebuild endpoints require the gateway's trusted
+  `X-User-Id` and the global role configured in `Warehouse:OperatorRole`
+  (default `operator`). The gateway maps Keycloak's `realm_access` claim to
+  `X-Roles` as JSON; direct local calls may use comma-separated roles.
 
 ## Considered Options
 

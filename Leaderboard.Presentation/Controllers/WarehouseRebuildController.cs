@@ -11,7 +11,7 @@ using ILogger = Serilog.ILogger;
 namespace Leaderboard.Presentation.Controllers;
 
 [ApiController]
-[Route("api/v1/warehouse/rebuilds")]
+[Route("api/leaderboard/v1/warehouse/rebuilds")]
 [RequireRole(OperatorRoleKey, DefaultOperatorRole)]
 public sealed class WarehouseRebuildController(IMediator mediator, ILogger logger) : ControllerBase
 {
@@ -22,7 +22,7 @@ public sealed class WarehouseRebuildController(IMediator mediator, ILogger logge
     [HttpPost]
     public async Task<IActionResult> Start(CancellationToken cancellationToken)
     {
-        WarehouseRebuildReport report = await mediator.Send(
+        WarehouseRebuildReport report = await mediator.Send<WarehouseRebuildReport>(
             new StartWarehouseRebuildCommand(),
             cancellationToken
         );
@@ -39,7 +39,7 @@ public sealed class WarehouseRebuildController(IMediator mediator, ILogger logge
     [HttpPost("{rebuildId:guid}/resume")]
     public async Task<IActionResult> Resume(Guid rebuildId, CancellationToken cancellationToken)
     {
-        WarehouseRebuildReport report = await mediator.Send(
+        WarehouseRebuildReport report = await mediator.Send<WarehouseRebuildReport>(
             new ResumeWarehouseRebuildCommand(rebuildId),
             cancellationToken
         );
