@@ -10,8 +10,8 @@ public static class LogLevelExtensions
         {
             LogEventLevel.Verbose => "debug",
             LogEventLevel.Debug => "debug",
-            LogEventLevel.Information => "info",
-            LogEventLevel.Warning => "warn",
+            LogEventLevel.Information => "information",
+            LogEventLevel.Warning => "warning",
             LogEventLevel.Error => "error",
             LogEventLevel.Fatal => "fatal",
             _ => level.ToString().ToLowerInvariant(),
