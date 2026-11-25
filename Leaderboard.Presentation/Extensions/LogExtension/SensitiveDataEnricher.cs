@@ -21,7 +21,9 @@ public sealed class SensitiveDataEnricher : ILogEventEnricher
 
     public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
     {
-        foreach (KeyValuePair<string, LogEventPropertyValue> property in logEvent.Properties.ToArray())
+        foreach (
+            KeyValuePair<string, LogEventPropertyValue> property in logEvent.Properties.ToArray()
+        )
         {
             if (SensitiveKey.IsMatch(property.Key))
             {
@@ -44,21 +46,24 @@ public sealed class SensitiveDataEnricher : ILogEventEnricher
                 SensitiveText.Replace(text, "[redacted]")
             ),
             StructureValue structure => new StructureValue(
-                structure.Properties
-                    .Where(property => !SensitiveKey.IsMatch(property.Name))
-                    .Select(property => new LogEventProperty(property.Name, Redact(property.Value))),
+                structure
+                    .Properties.Where(property => !SensitiveKey.IsMatch(property.Name))
+                    .Select(property => new LogEventProperty(
+                        property.Name,
+                        Redact(property.Value)
+                    )),
                 structure.TypeTag
             ),
             SequenceValue sequence => new SequenceValue(sequence.Elements.Select(Redact)),
             DictionaryValue dictionary => new DictionaryValue(
-                dictionary.Elements
-                    .Where(entry => entry.Key.Value is not string key || !SensitiveKey.IsMatch(key))
-                    .Select(entry =>
-                        new KeyValuePair<ScalarValue, LogEventPropertyValue>(
-                            entry.Key,
-                            Redact(entry.Value)
-                        )
+                dictionary
+                    .Elements.Where(entry =>
+                        entry.Key.Value is not string key || !SensitiveKey.IsMatch(key)
                     )
+                    .Select(entry => new KeyValuePair<ScalarValue, LogEventPropertyValue>(
+                        entry.Key,
+                        Redact(entry.Value)
+                    ))
             ),
             _ => value,
         };

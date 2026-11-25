@@ -10,20 +10,20 @@ public static class BuilderExtension
 {
     private const string ConsoleJsonTemplate =
         """
-        { {
-            timestamp: @t,
-            level: level,
-            service: 'leaderboard-backend',
-            origin: 'backend',
-            message: @m,
-            properties: Rest(),
-            exception: if @x is not null then {
-                type: TypeOf(@x),
-                message: Inspect(@x).Message,
-                stack: Inspect(@x).StackTrace
-            } else undefined()
-        } }
-        """ + "\n";
+            { {
+                timestamp: @t,
+                level: level,
+                service: 'leaderboard-backend',
+                origin: 'backend',
+                message: @m,
+                properties: Rest(),
+                exception: if @x is not null then {
+                    type: TypeOf(@x),
+                    message: Inspect(@x).Message,
+                    stack: Inspect(@x).StackTrace
+                } else undefined()
+            } }
+            """ + "\n";
 
     public static WebApplicationBuilder ConfigureApi(this WebApplicationBuilder builder)
     {
