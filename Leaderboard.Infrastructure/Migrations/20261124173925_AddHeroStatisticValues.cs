@@ -14,10 +14,22 @@ namespace Leaderboard.Infrastructure.Migrations
                 name: "hero_statistic_values",
                 columns: table => new
                 {
-                    HeroId = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
-                    Key = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    HeroId = table.Column<string>(
+                        type: "character varying(128)",
+                        maxLength: 128,
+                        nullable: false
+                    ),
+                    Key = table.Column<string>(
+                        type: "character varying(64)",
+                        maxLength: 64,
+                        nullable: false
+                    ),
                     Value = table.Column<long>(type: "bigint", nullable: false),
-                    Origin = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false)
+                    Origin = table.Column<string>(
+                        type: "character varying(32)",
+                        maxLength: 32,
+                        nullable: false
+                    ),
                 },
                 constraints: table =>
                 {
@@ -27,15 +39,16 @@ namespace Leaderboard.Infrastructure.Migrations
                         column: x => x.HeroId,
                         principalTable: "hero_rankings",
                         principalColumn: "HeroId",
-                        onDelete: ReferentialAction.Cascade);
-                });
+                        onDelete: ReferentialAction.Cascade
+                    );
+                }
+            );
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "hero_statistic_values");
+            migrationBuilder.DropTable(name: "hero_statistic_values");
         }
     }
 }
