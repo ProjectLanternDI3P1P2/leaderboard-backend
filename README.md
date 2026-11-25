@@ -10,8 +10,14 @@ Deployment parameters and target service communications are documented in
 [deployment configuration](docs/deployment-configuration.md).
 
 The Leaderboard microservice: a .NET 10 Clean Architecture solution, its CI
-pipeline, and its release flow. Player owns player profiles and heroes;
-Leaderboard only stores event-derived player statistics.
+pipeline, and its release flow. Player owns player profiles and heroes.
+Leaderboard stores event-derived player statistics and a hero ranking table.
+In Development only, an idempotent seed adds 220 demonstration heroes. Three
+belong to the local Keycloak `demo` account configured in
+`appsettings.Development.json` and use the same hero IDs as Player's Development
+roster; other accounts do not inherit them. These rows
+and their 15 persisted statistics per hero are demonstration data; hero event
+projection remains to be implemented.
 
 Vocabulary is defined in [CONTEXT.md](./CONTEXT.md). Shared technical choices are
 recorded in [BACKEND_TECHNICAL_DECISIONS.md](./docs/BACKEND_TECHNICAL_DECISIONS.md),

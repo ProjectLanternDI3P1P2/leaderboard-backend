@@ -1,7 +1,9 @@
+using Leaderboard.Application.Features.HeroRanking;
 using Leaderboard.Domain.Services;
 using Leaderboard.Infrastructure.Messaging;
 using Leaderboard.Infrastructure.Persistence;
 using Leaderboard.Infrastructure.Persistence.Mongo;
+using Leaderboard.Infrastructure.Persistence.Repositories;
 using Leaderboard.Infrastructure.PipelineBehavior;
 using Leaderboard.Infrastructure.Services;
 using Leaderboard.Infrastructure.Warehouse;
@@ -28,6 +30,7 @@ public static class InfrastructureServiceRegistration
         return services
             .AddSingleton(Options.Create(databaseOptions))
             .AddSingleton<IClock, SystemClock>()
+            .AddScoped<IHeroRankingQueries, HeroRankingQueries>()
             .AddTransient(typeof(IPipelineBehavior<,>), typeof(CommandTransactionBehavior<,>))
             .AddEfConnection()
             .AddRepositories()
