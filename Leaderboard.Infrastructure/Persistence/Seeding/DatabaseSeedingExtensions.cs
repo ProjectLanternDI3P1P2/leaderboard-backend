@@ -7,6 +7,16 @@ namespace Leaderboard.Infrastructure.Persistence.Seeding;
 
 public static class DatabaseSeedingExtensions
 {
+    private static readonly (int Rank, string HeroId, string Name, int Level)[] DemoPlayerHeroes =
+    [
+        (7, "00000000-0000-0000-0000-000000000101", "Aldric", 9),
+        (58, "00000000-0000-0000-0000-000000000102", "Sahra", 7),
+        (210, "00000000-0000-0000-0000-000000000103", "Corvin", 11),
+    ];
+    private static readonly string[] DemoPlayerHeroIds = DemoPlayerHeroes
+        .Select(hero => hero.HeroId)
+        .ToArray();
+
     public static async Task MigrateDevelopmentDatabaseAsync(
         this IServiceProvider services,
         CancellationToken cancellationToken = default
@@ -22,8 +32,78 @@ public static class DatabaseSeedingExtensions
         string demoPlayerName = configuration["DevelopmentSeed:PlayerName"] ?? "demo";
 
         await context.Database.MigrateAsync(cancellationToken);
+        await RepairDevelopmentHeroIdsAsync(
+            context,
+            demoPlayerId,
+            demoPlayerName,
+            cancellationToken
+        );
         await SeedDevelopmentHeroesAsync(context, demoPlayerId, demoPlayerName, cancellationToken);
         await SeedDevelopmentStatisticsAsync(context, cancellationToken);
+    }
+
+    private static async Task RepairDevelopmentHeroIdsAsync(
+        LeaderboardDbContext context,
+        string demoPlayerId,
+        string demoPlayerName,
+        CancellationToken cancellationToken
+    )
+    {
+        // Early leaderboard seeds invented hero IDs independently of Player.
+        // Replace only those three development rows, keeping their ranking figures.
+        var legacyIds = DemoPlayerHeroes.Select(hero => $"demo-hero-{hero.Rank:000}").ToArray();
+        List<HeroRanking> legacy = await context
+            .HeroRankings.Where(hero => legacyIds.Contains(hero.HeroId))
+            .ToListAsync(cancellationToken);
+        if (legacy.Count == 0)
+            return;
+
+        await using var transaction = await context.Database.BeginTransactionAsync(
+            cancellationToken
+        );
+        foreach (HeroRanking old in legacy)
+        {
+            int rank = int.Parse(old.HeroId[^3..]);
+            var playerHero = DemoPlayerHeroes.Single(hero => hero.Rank == rank);
+            bool alreadyRepaired = await context.HeroRankings.AnyAsync(
+                hero => hero.HeroId == playerHero.HeroId,
+                cancellationToken
+            );
+
+            List<HeroStatisticValue> oldValues = await context
+                .HeroStatisticValues.Where(value => value.HeroId == old.HeroId)
+                .ToListAsync(cancellationToken);
+            context.HeroStatisticValues.RemoveRange(oldValues);
+            context.HeroRankings.Remove(old);
+            await context.SaveChangesAsync(cancellationToken);
+
+            if (alreadyRepaired)
+                continue;
+
+            context.HeroRankings.Add(
+                new HeroRanking
+                {
+                    HeroId = playerHero.HeroId,
+                    HeroName = playerHero.Name,
+                    HeroClass = old.HeroClass,
+                    PlayerId = demoPlayerId,
+                    PlayerName = demoPlayerName,
+                    AllTimeXp = old.AllTimeXp,
+                    SeasonXp = old.SeasonXp,
+                    WeekXp = old.WeekXp,
+                    Level = playerHero.Level,
+                    Runs = old.Runs,
+                    WinRate = old.WinRate,
+                    LastActivityAt = old.LastActivityAt,
+                    CreatedAt = old.CreatedAt,
+                    SeededAt = old.SeededAt,
+                    IsPending = old.IsPending,
+                    RankDelta = old.RankDelta,
+                }
+            );
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await transaction.CommitAsync(cancellationToken);
     }
 
     private static async Task SeedDevelopmentHeroesAsync(
@@ -33,26 +113,6 @@ public static class DatabaseSeedingExtensions
         CancellationToken cancellationToken
     )
     {
-        // Repair rows created by the first development seed, which used the
-        // route alias as a database owner and attributed them to every account.
-        List<HeroRanking> legacyOwned = await context
-            .HeroRankings.Where(hero =>
-                hero.PlayerId == "me"
-                && (
-                    hero.HeroId == "demo-hero-007"
-                    || hero.HeroId == "demo-hero-058"
-                    || hero.HeroId == "demo-hero-210"
-                )
-            )
-            .ToListAsync(cancellationToken);
-        foreach (HeroRanking hero in legacyOwned)
-        {
-            hero.PlayerId = demoPlayerId;
-            hero.PlayerName = demoPlayerName;
-        }
-        if (legacyOwned.Count > 0)
-            await context.SaveChangesAsync(cancellationToken);
-
         if (await context.HeroRankings.AnyAsync(cancellationToken))
         {
             return;
@@ -75,6 +135,7 @@ public static class DatabaseSeedingExtensions
 
         for (int rank = 1; rank <= 220; rank++)
         {
+            var demoHero = DemoPlayerHeroes.FirstOrDefault(hero => hero.Rank == rank);
             bool mine = rank is 7 or 58 or 210;
             bool deleted = rank is 9 or 73 or 150;
             bool inSeason = rank != 210 && rank % 11 is not (1 or 4 or 6 or 9 or 10);
@@ -92,14 +153,8 @@ public static class DatabaseSeedingExtensions
             heroes.Add(
                 new HeroRanking
                 {
-                    HeroId = $"demo-hero-{rank:000}",
-                    HeroName = rank switch
-                    {
-                        7 => "Maelis the Warden",
-                        58 => "Ysolde Stormcall",
-                        210 => "Quillon Ashveil",
-                        _ => $"{names[rank % names.Length]} of the Lantern",
-                    },
+                    HeroId = demoHero.HeroId ?? $"demo-hero-{rank:000}",
+                    HeroName = demoHero.Name ?? $"{names[rank % names.Length]} of the Lantern",
                     HeroClass = rank switch
                     {
                         7 => "warrior",
@@ -120,7 +175,8 @@ public static class DatabaseSeedingExtensions
                     WeekXp = inWeek
                         ? (long)Math.Round(seasonXp!.Value * (0.05 + rank * 53 % 20 / 100.0))
                         : null,
-                    Level = Math.Min(60, 1 + (int)(xp / 25_000)),
+                    Level =
+                        demoHero.Level > 0 ? demoHero.Level : Math.Min(60, 1 + (int)(xp / 25_000)),
                     Runs = rank == 199 ? 0 : 30 + rank * 13 % 170,
                     WinRate = rank == 7 ? 0.64 : 0.2 + rank * 29 % 60 / 100.0,
                     LastActivityAt = lastActivity,
@@ -146,7 +202,9 @@ public static class DatabaseSeedingExtensions
     {
         List<HeroRanking> heroes = await context
             .HeroRankings.AsNoTracking()
-            .Where(hero => hero.HeroId.StartsWith("demo-hero-"))
+            .Where(hero =>
+                hero.HeroId.StartsWith("demo-hero-") || DemoPlayerHeroIds.Contains(hero.HeroId)
+            )
             .ToListAsync(cancellationToken);
         var existing = (
             await context
