@@ -19,6 +19,7 @@ public sealed class WarehouseRebuildRunner(
     IWarehouseStore store,
     IRawEventStore rawEventStore,
     IPlayerActionDecoder decoder,
+    IHeroRankingEventDecoder heroDecoder,
     IClock clock,
     IOptions<WarehouseRebuildOptions> options,
     ILogger<WarehouseRebuildRunner> logger
@@ -144,12 +145,16 @@ public sealed class WarehouseRebuildRunner(
     )
     {
         List<IReadOnlyList<PlayerAction>> decodedEvents = [];
+        Dictionary<Guid, IReadOnlyList<HeroRankingChange>> heroChanges = [];
         foreach (RawEvent rawEvent in batch)
         {
             cursor.Advance(rawEvent);
             var actions = decoder.Decode(rawEvent);
             if (actions.Count > 0)
+            {
                 decodedEvents.Add(actions);
+                heroChanges.TryAdd(actions[0].MessageId, heroDecoder.Decode(rawEvent));
+            }
         }
         // Deduplicate complete events so a group event keeps every player's contribution.
         var distinctEvents = decodedEvents.DistinctBy(actions => actions[0].MessageId).ToList();
@@ -170,6 +175,22 @@ public sealed class WarehouseRebuildRunner(
             PlayerActionAggregator.Aggregate(newEvents.SelectMany(actions => actions)),
             cancellationToken
         );
+        List<HeroRankingDelta> heroes = newEvents
+            .SelectMany(actions => heroChanges[actions[0].MessageId])
+            .GroupBy(change => change.HeroId, StringComparer.Ordinal)
+            .Select(group => new HeroRankingDelta(
+                group.Key,
+                group.First().PlayerId,
+                group
+                    .Select(change => change.HeroClassId)
+                    .LastOrDefault(value => value is not null),
+                group.Max(change => change.TotalXpAfter),
+                group.Max(change => change.Level),
+                group.Min(change => change.OccurredAt),
+                group.Max(change => change.OccurredAt)
+            ))
+            .ToList();
+        await transaction.ApplyHeroRankingsAsync(heroes, cancellationToken);
         rebuild.RecordBatch(
             new WarehouseBatchProgress(
                 EventsProcessed: batch.Count,

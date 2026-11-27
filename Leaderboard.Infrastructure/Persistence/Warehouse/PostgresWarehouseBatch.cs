@@ -48,6 +48,23 @@ public sealed class PostgresWarehouseBatch(
             value_total = s.value_total + excluded.value_total
         """;
 
+    private const string ApplyHeroesSql = $"""
+        INSERT INTO {HeroRankingSnapshotConfiguration.TableName} AS s
+            (generation_id, hero_id, player_id, hero_class_id, total_xp, level, first_seen_at, last_activity_at)
+        SELECT @generation_id, d.hero_id, d.player_id, d.hero_class_id,
+            coalesce(d.total_xp, 0), coalesce(d.level, 1), d.first_seen_at, d.last_activity_at
+        FROM unnest(@hero_ids, @hero_player_ids, @hero_class_ids, @hero_total_xps,
+            @hero_levels, @first_seen_ats, @hero_last_activity_ats)
+            AS d(hero_id, player_id, hero_class_id, total_xp, level, first_seen_at, last_activity_at)
+        ON CONFLICT (generation_id, hero_id) DO UPDATE SET
+            player_id = excluded.player_id,
+            hero_class_id = coalesce(excluded.hero_class_id, s.hero_class_id),
+            total_xp = greatest(s.total_xp, excluded.total_xp),
+            level = greatest(s.level, excluded.level),
+            first_seen_at = least(s.first_seen_at, excluded.first_seen_at),
+            last_activity_at = greatest(s.last_activity_at, excluded.last_activity_at)
+        """;
+
     public async Task<IReadOnlySet<Guid>> RegisterMessagesAsync(
         IReadOnlyCollection<Guid> messageIds,
         CancellationToken cancellationToken
@@ -136,6 +153,52 @@ public sealed class PostgresWarehouseBatch(
             );
             await actions.ExecuteNonQueryAsync(cancellationToken);
         }
+    }
+
+    public async Task ApplyHeroRankingsAsync(
+        IReadOnlyList<HeroRankingDelta> changes,
+        CancellationToken cancellationToken
+    )
+    {
+        if (changes.Count == 0)
+            return;
+
+        await using NpgsqlCommand heroes = CreateCommand(ApplyHeroesSql);
+        heroes.Parameters.Add(Uuid("generation_id", generationId));
+        heroes.Parameters.Add(
+            Array("hero_ids", NpgsqlDbType.Text, changes.Select(h => h.HeroId).ToArray())
+        );
+        heroes.Parameters.Add(
+            Array("hero_player_ids", NpgsqlDbType.Text, changes.Select(h => h.PlayerId).ToArray())
+        );
+        heroes.Parameters.Add(
+            Array("hero_class_ids", NpgsqlDbType.Text, changes.Select(h => h.HeroClassId).ToArray())
+        );
+        heroes.Parameters.Add(
+            Array(
+                "hero_total_xps",
+                NpgsqlDbType.Bigint,
+                changes.Select(h => h.TotalXpAfter).ToArray()
+            )
+        );
+        heroes.Parameters.Add(
+            Array("hero_levels", NpgsqlDbType.Integer, changes.Select(h => h.Level).ToArray())
+        );
+        heroes.Parameters.Add(
+            Array(
+                "first_seen_ats",
+                NpgsqlDbType.TimestampTz,
+                changes.Select(h => h.FirstSeenAt.UtcDateTime).ToArray()
+            )
+        );
+        heroes.Parameters.Add(
+            Array(
+                "hero_last_activity_ats",
+                NpgsqlDbType.TimestampTz,
+                changes.Select(h => h.LastActivityAt.UtcDateTime).ToArray()
+            )
+        );
+        await heroes.ExecuteNonQueryAsync(cancellationToken);
     }
 
     public async Task CommitAsync(CancellationToken cancellationToken)

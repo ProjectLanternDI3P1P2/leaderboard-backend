@@ -61,6 +61,11 @@ public interface IWarehouseBatch : IAsyncDisposable
 
     Task ApplyAsync(WarehouseDelta delta, CancellationToken cancellationToken);
 
+    Task ApplyHeroRankingsAsync(
+        IReadOnlyList<HeroRankingDelta> changes,
+        CancellationToken cancellationToken
+    );
+
     /// <summary>Saves the rebuild checkpoint and commits the batch.</summary>
     Task CommitAsync(CancellationToken cancellationToken);
 }

@@ -8,6 +8,53 @@ namespace Leaderboard.Test.HeroRanking;
 public sealed class HeroRankingQueriesTests
 {
     [Fact]
+    public async Task Public_ranking_pages_fifty_heroes_with_stable_ties_and_no_gaps()
+    {
+        await using LeaderboardDbContext database = CreateDatabase();
+        database.HeroRankings.AddRange(
+            Enumerable
+                .Range(1, 110)
+                .Reverse()
+                .Select(index => Hero($"hero-{index:000}", "warrior", "owner", 1000, null, null))
+        );
+        await database.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        var queries = new HeroRankingQueries(database);
+        var pages = new[]
+        {
+            await queries.GetPublicAsync(1, 50, TestContext.Current.CancellationToken),
+            await queries.GetPublicAsync(2, 50, TestContext.Current.CancellationToken),
+            await queries.GetPublicAsync(3, 50, TestContext.Current.CancellationToken),
+        };
+
+        Assert.All(pages, page => Assert.Equal(110, page.TotalCount));
+        Assert.Equal([50, 50, 10], pages.Select(page => page.Entries.Count));
+        Assert.Equal(
+            Enumerable.Range(1, 110).Select(index => $"hero-{index:000}"),
+            pages.SelectMany(page => page.Entries).Select(hero => hero.HeroId)
+        );
+        Assert.Equal(
+            Enumerable.Range(1, 110),
+            pages.SelectMany(page => page.Entries).Select(hero => hero.Rank)
+        );
+    }
+
+    [Fact]
+    public async Task Empty_public_ranking_returns_an_empty_page()
+    {
+        await using LeaderboardDbContext database = CreateDatabase();
+
+        var result = await new HeroRankingQueries(database).GetPublicAsync(
+            1,
+            50,
+            TestContext.Current.CancellationToken
+        );
+
+        Assert.Equal(0, result.TotalCount);
+        Assert.Empty(result.Entries);
+    }
+
+    [Fact]
     public async Task Ranking_keeps_xp_rank_when_filtered_and_highlights_authenticated_player()
     {
         await using LeaderboardDbContext database = CreateDatabase();
@@ -79,7 +126,11 @@ public sealed class HeroRankingQueriesTests
         await database.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var queries = new HeroRankingQueries(database);
-        var publicRanking = await queries.GetPublicAsync(TestContext.Current.CancellationToken);
+        var publicRanking = await queries.GetPublicAsync(
+            1,
+            50,
+            TestContext.Current.CancellationToken
+        );
         var detail = await queries.GetDetailAsync("first", TestContext.Current.CancellationToken);
         var facts = await queries.GetFactsAsync("first", TestContext.Current.CancellationToken);
         var statistics = await queries.GetStatisticsAsync(
@@ -88,6 +139,7 @@ public sealed class HeroRankingQueriesTests
         );
 
         Assert.Equal("first", Assert.Single(publicRanking.Top).HeroId);
+        Assert.Equal("first", Assert.Single(publicRanking.Entries).HeroId);
         Assert.Equal("first", detail?.HeroId);
         Assert.Equal(300, facts?.XpFromFacts);
         Assert.Equal(99, statistics.Statistics.Single(item => item.Key == "games_played").Value);

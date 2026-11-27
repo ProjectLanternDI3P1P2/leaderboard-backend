@@ -19,6 +19,34 @@ public static class RawEventBuilder
         ["rewards.gold-earned"] = EventFixtures.Load("gold-player-wallet.json"),
     };
 
+    public static RawEvent HeroCreated(string playerId, string heroId, DateTimeOffset receivedAt)
+    {
+        GameEventEnvelope message = EventFixtures.Load("hero-created.json");
+        message.MessageId = Guid.NewGuid().ToString();
+        message.OccurredAt = Timestamp.FromDateTimeOffset(receivedAt.AddSeconds(-1));
+        message.HeroCreated.Actor.PlayerId = playerId;
+        message.HeroCreated.Actor.HeroId = heroId;
+        return FromEnvelope(message, receivedAt);
+    }
+
+    public static RawEvent XpAwarded(
+        string playerId,
+        string heroId,
+        long totalXpAfter,
+        DateTimeOffset receivedAt
+    )
+    {
+        GameEventEnvelope message = EventFixtures.Load("xp-awarded.json");
+        message.MessageId = Guid.NewGuid().ToString();
+        message.OccurredAt = Timestamp.FromDateTimeOffset(receivedAt.AddSeconds(-1));
+        message.XpAwarded.XpAwardId = Guid.NewGuid().ToString();
+        message.XpAwarded.Actor.PlayerId = playerId;
+        message.XpAwarded.Actor.HeroId = heroId;
+        message.XpAwarded.Amount = (ulong)totalXpAfter;
+        message.XpAwarded.TotalXpAfter = (ulong)totalXpAfter;
+        return FromEnvelope(message, receivedAt);
+    }
+
     public static RawEvent Action(
         string playerId,
         string actionType,

@@ -15,7 +15,7 @@ public sealed class HeroRankingController(IHeroRankingQueries queries) : Control
         [FromQuery] string? search = null,
         [FromQuery] string sort = "total-xp",
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10
+        [FromQuery] int pageSize = 50
     )
     {
         string? authenticatedPlayer = Request.Headers["X-User-Id"].FirstOrDefault();
@@ -45,8 +45,16 @@ public sealed class HeroRankingController(IHeroRankingQueries queries) : Control
     }
 
     [HttpGet("public")]
-    public async Task<PublicHeroRanking> GetPublic(CancellationToken cancellationToken) =>
-        await queries.GetPublicAsync(cancellationToken);
+    public async Task<IActionResult> GetPublic(
+        CancellationToken cancellationToken,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50
+    )
+    {
+        if (page < 1 || pageSize is < 1 or > 100)
+            return BadRequest("Invalid pagination.");
+        return Ok(await queries.GetPublicAsync(page, pageSize, cancellationToken));
+    }
 
     [HttpGet("heroes/{heroId}")]
     public async Task<IActionResult> GetHero(string heroId, CancellationToken cancellationToken)

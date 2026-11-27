@@ -102,6 +102,7 @@ public sealed class WarehouseTestHarness : IAsyncDisposable
             new PostgresWarehouseStore(dbContext),
             rawEventStore ?? RawEventStore,
             new GameEventPlayerActionDecoder(),
+            new GameEventHeroRankingDecoder(),
             clock,
             Options.Create(new WarehouseRebuildOptions { BatchSize = batchSize }),
             NullLogger<WarehouseRebuildRunner>.Instance

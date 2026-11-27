@@ -97,6 +97,10 @@ public sealed class PostgresWarehouseStore(LeaderboardDbContext dbContext) : IWa
             $"DELETE FROM {PlayerActionStatisticsConfiguration.TableName} WHERE generation_id NOT IN ({keptGenerations})",
             cancellationToken
         );
+        await dbContext.Database.ExecuteSqlRawAsync(
+            $"DELETE FROM {HeroRankingSnapshotConfiguration.TableName} WHERE generation_id NOT IN ({keptGenerations})",
+            cancellationToken
+        );
         // The deduplication set is only needed while a rebuild can still be resumed.
         await dbContext.Database.ExecuteSqlRawAsync(
             $"DELETE FROM {WarehouseProcessedMessageConfiguration.TableName} WHERE generation_id NOT IN ({resumableGenerations})",

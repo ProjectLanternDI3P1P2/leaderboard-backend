@@ -53,7 +53,10 @@ public sealed record PublicHeroRanking(
     int TotalCount,
     IReadOnlyList<HeroRankingEntry> Podium,
     IReadOnlyList<ClassLeader> LeadersByClass,
-    IReadOnlyList<HeroRankingEntry> Top
+    IReadOnlyList<HeroRankingEntry> Top,
+    int Page,
+    int PageSize,
+    IReadOnlyList<HeroRankingEntry> Entries
 );
 
 public sealed record HeroRun(
@@ -119,7 +122,11 @@ public interface IHeroRankingQueries
         CancellationToken cancellationToken
     );
 
-    Task<PublicHeroRanking> GetPublicAsync(CancellationToken cancellationToken);
+    Task<PublicHeroRanking> GetPublicAsync(
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken
+    );
     Task<HeroRankingDetail?> GetDetailAsync(string heroId, CancellationToken cancellationToken);
     Task<HeroRankingFacts?> GetFactsAsync(string heroId, CancellationToken cancellationToken);
     Task<HeroStatistics> GetStatisticsAsync(string heroId, CancellationToken cancellationToken);
