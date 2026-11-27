@@ -16,7 +16,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ProjectLanternDI3P1P2/platform-gitops/.github/workflows/publish-and-promote.yaml@4e7f288e86cb3fe4b5565f187c4de1a7e49b06fa # platform-gitops #96: sign before any pull (Harbor policies)
+    uses: ProjectLanternDI3P1P2/platform-gitops/.github/workflows/publish-and-promote.yaml@1b6a6b17433093218b9dbe63cebb5d7af6875117 # platform-gitops #99: same docker push for every image, sign before any pull
     with:
       application: leaderboard
       image: 10.4.111.200:18443/lantern/leaderboard-backend
