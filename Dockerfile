@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1.10
 
 # --- Stage 1: Build ---
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG DOTNET_SDK_PLATFORM=linux/amd64
+FROM --platform=${DOTNET_SDK_PLATFORM} mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY NuGet.config ./
