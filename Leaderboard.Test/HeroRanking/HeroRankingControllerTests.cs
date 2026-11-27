@@ -81,6 +81,65 @@ public sealed class HeroRankingControllerTests
     }
 
     [Fact]
+    public async Task Heroes_forward_all_filter_and_pagination_parameters()
+    {
+        var queries = new Mock<IHeroRankingQueries>();
+        queries
+            .Setup(query =>
+                query.GetPageAsync(
+                    "player-1",
+                    "mage",
+                    "season",
+                    "Rune",
+                    "win-rate",
+                    2,
+                    25,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                new HeroRankingPage(
+                    null,
+                    "live",
+                    new RankingStatusDetail(),
+                    new RankingSeason("season-3", "Season 3", DateTimeOffset.UtcNow, null),
+                    2,
+                    25,
+                    0,
+                    [],
+                    []
+                )
+            );
+        var controller = CreateController(queries.Object, "player-1");
+
+        IActionResult result = await controller.GetHeroes(
+            TestContext.Current.CancellationToken,
+            "mage",
+            "season",
+            "Rune",
+            "win-rate",
+            2,
+            25
+        );
+
+        Assert.IsType<OkObjectResult>(result);
+        queries.Verify(
+            query =>
+                query.GetPageAsync(
+                    "player-1",
+                    "mage",
+                    "season",
+                    "Rune",
+                    "win-rate",
+                    2,
+                    25,
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
     public async Task Hero_detail_uses_me_alias_only_for_its_owner()
     {
         var queries = new Mock<IHeroRankingQueries>();

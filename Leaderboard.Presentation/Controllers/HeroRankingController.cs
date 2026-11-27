@@ -11,11 +11,11 @@ public sealed class HeroRankingController(IHeroRankingQueries queries) : Control
     public async Task<IActionResult> GetHeroes(
         CancellationToken cancellationToken,
         [FromQuery(Name = "class")] string? heroClass = null,
-        [FromQuery] string period = "all-time",
-        [FromQuery] string? search = null,
-        [FromQuery] string sort = "total-xp",
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10
+        [FromQuery(Name = "period")] string period = "all-time",
+        [FromQuery(Name = "search")] string? search = null,
+        [FromQuery(Name = "sort")] string sort = "total-xp",
+        [FromQuery(Name = "page")] int page = 1,
+        [FromQuery(Name = "pageSize")] int pageSize = 10
     )
     {
         string? authenticatedPlayer = Request.Headers["X-User-Id"].FirstOrDefault();

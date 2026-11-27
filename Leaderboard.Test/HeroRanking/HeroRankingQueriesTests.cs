@@ -63,6 +63,55 @@ public sealed class HeroRankingQueriesTests
     }
 
     [Fact]
+    public async Task Ranking_combines_class_period_search_sort_and_pagination()
+    {
+        await using LeaderboardDbContext database = CreateDatabase();
+        var lowLevelMage = Hero("mage-low-level", "mage", "RunePlayer", 800, 400, 400);
+        lowLevelMage.Level = 10;
+        var highLevelMage = Hero("mage-high-level", "mage", "rune-player", 700, 500, 500);
+        highLevelMage.Level = 30;
+        highLevelMage.PlayerId = "current-player";
+        database.HeroRankings.AddRange(
+            Hero("warrior", "warrior", "other", 900, 900, 900),
+            lowLevelMage,
+            highLevelMage,
+            Hero("mage-no-match", "mage", "other", 600, 300, 300),
+            Hero("mage-unranked", "mage", "RunePlayer", 100, null, null)
+        );
+        await database.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        var queries = new HeroRankingQueries(database);
+        var result = await queries.GetPageAsync(
+            "current-player",
+            "mage",
+            "season",
+            "RUNE",
+            "level",
+            1,
+            1,
+            TestContext.Current.CancellationToken
+        );
+
+        Assert.Equal(2, result.TotalCount);
+        var entry = Assert.Single(result.Entries);
+        Assert.Equal("mage-high-level", entry.HeroId);
+        Assert.Equal(2, entry.Rank);
+        Assert.Equal("mage-high-level", Assert.Single(result.Me).HeroId);
+
+        var secondPage = await queries.GetPageAsync(
+            "current-player",
+            "mage",
+            "season",
+            "RUNE",
+            "level",
+            2,
+            1,
+            TestContext.Current.CancellationToken
+        );
+        Assert.Equal("mage-low-level", Assert.Single(secondPage.Entries).HeroId);
+    }
+
+    [Fact]
     public async Task Public_ranking_and_hero_endpoints_read_the_same_backend_rows()
     {
         await using LeaderboardDbContext database = CreateDatabase();

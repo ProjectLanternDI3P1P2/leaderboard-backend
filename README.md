@@ -147,7 +147,13 @@ direct calls, `X-Roles` may be comma-separated; the gateway sends Keycloak's
 | `POST /api/leaderboard/v1/warehouse/rebuilds/{id}/resume` | Resumes an interrupted or failed rebuild from its checkpoint |
 | `GET /api/leaderboard/v1/warehouse/rebuilds/{id}` | Report: status, events processed, applied, deduplicated, ignored, most recent one |
 | `GET /api/leaderboard/v1/players/{playerId}/statistics` | Statistics of a player, from the last consolidated generation |
-| `GET /api/leaderboard/v1/leaderboard?page=1&pageSize=20` | League table, from the last consolidated generation |
+| `GET /api/leaderboard/v1/heroes` | Authenticated hero ranking; supports `class`, `period`, `search`, `sort`, `page`, and `pageSize` query parameters |
+| `GET /api/leaderboard/v1/public` | Public top rankings and leaders by class |
+
+Ranking filters: `class` is `warrior`, `shaman`, or `mage`; `period` is
+`all-time`, `season`, or `week`; `search` matches hero or player display names
+case-insensitively; `sort` is `total-xp`, `level`, `win-rate`, or
+`last-activity`. Pagination defaults to `page=1&pageSize=10`.
 
 ```bash
 curl -X POST -H "X-User-Id: local-operator" -H "X-Roles: operator" http://localhost:8080/api/leaderboard/v1/warehouse/rebuilds
