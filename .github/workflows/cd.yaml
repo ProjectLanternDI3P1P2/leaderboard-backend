@@ -16,7 +16,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ProjectLanternDI3P1P2/platform-gitops/.github/workflows/publish-and-promote.yaml@ad88ca61eefa60732975f3263d0af2dcd72b99ba # scan gate + cosign + provenance
+    uses: ProjectLanternDI3P1P2/platform-gitops/.github/workflows/publish-and-promote.yaml@4e7f288e86cb3fe4b5565f187c4de1a7e49b06fa # platform-gitops #96: sign before any pull (Harbor policies)
     with:
       application: leaderboard
       image: 10.4.111.200:18443/lantern/leaderboard-backend
