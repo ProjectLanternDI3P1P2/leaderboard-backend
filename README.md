@@ -133,7 +133,7 @@ See [integration decisions](docs/collection/integration-pr-10-14.md),
 
 ## Warehouse rebuild
 
-The warehouse (player statistics and league table) is recalculated from the raw
+The warehouse (player statistics, league table and hero XP rankings) is recalculated from the raw
 event store; the design is in
 [ADR-0038](./docs/adr/0038-rebuild-the-warehouse-into-a-new-generation-from-the-raw-event-store.md).
 The rebuild endpoints require a trusted `X-User-Id` and the `operator` role in
@@ -148,6 +148,16 @@ direct calls, `X-Roles` may be comma-separated; the gateway sends Keycloak's
 | `GET /api/leaderboard/v1/warehouse/rebuilds/{id}` | Report: status, events processed, applied, deduplicated, ignored, most recent one |
 | `GET /api/leaderboard/v1/players/{playerId}/statistics` | Statistics of a player, from the last consolidated generation |
 | `GET /api/leaderboard/v1/leaderboard?page=1&pageSize=20` | League table, from the last consolidated generation |
+| `GET /api/leaderboard/v1/public?page=1&pageSize=50` | Public hero ranking, 50 heroes per page by total XP, with stable hero-ID ties |
+
+The hero ranking projection reads validated `HeroCreated`, `XpAwarded` and `LevelUp`
+events. A rebuild publishes hero scores only when its generation completes; an
+interrupted rebuild leaves the previous generation visible. An empty completed
+generation yields an empty ranking. The event contract currently supplies hero
+and class IDs but no display name or class code, so projected rows expose the
+hero ID and `unknown` class until the producers provide those fields. The
+existing seeded hero data remains available in Development before the first
+completed rebuild.
 
 ```bash
 curl -X POST -H "X-User-Id: local-operator" -H "X-Roles: operator" http://localhost:8080/api/leaderboard/v1/warehouse/rebuilds

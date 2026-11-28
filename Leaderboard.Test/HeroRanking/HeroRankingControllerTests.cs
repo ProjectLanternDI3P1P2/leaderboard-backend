@@ -9,6 +9,40 @@ namespace Leaderboard.Test.HeroRanking;
 public sealed class HeroRankingControllerTests
 {
     [Fact]
+    public async Task Public_ranking_defaults_to_fifty_without_authentication()
+    {
+        var queries = new Mock<IHeroRankingQueries>();
+        var ranking = new PublicHeroRanking(
+            null,
+            new RankingSeason("all-time", "All time", DateTimeOffset.UnixEpoch, null),
+            0,
+            [],
+            [],
+            [],
+            1,
+            50,
+            []
+        );
+        queries
+            .Setup(query => query.GetPublicAsync(1, 50, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ranking);
+
+        IActionResult result = await CreateController(queries.Object)
+            .GetPublic(TestContext.Current.CancellationToken);
+
+        Assert.Same(ranking, Assert.IsType<OkObjectResult>(result).Value);
+    }
+
+    [Fact]
+    public async Task Public_ranking_rejects_invalid_pagination()
+    {
+        IActionResult result = await CreateController(Mock.Of<IHeroRankingQueries>())
+            .GetPublic(TestContext.Current.CancellationToken, 0);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
     public async Task Heroes_without_identity_answer_unauthorized()
     {
         var controller = CreateController(Mock.Of<IHeroRankingQueries>());
@@ -54,7 +88,7 @@ public sealed class HeroRankingControllerTests
             new RankingStatusDetail(),
             new RankingSeason("season-3", "Season 3", DateTimeOffset.UtcNow, null),
             1,
-            10,
+            50,
             0,
             [],
             []
@@ -68,7 +102,7 @@ public sealed class HeroRankingControllerTests
                     null,
                     "total-xp",
                     1,
-                    10,
+                    50,
                     It.IsAny<CancellationToken>()
                 )
             )

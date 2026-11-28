@@ -4,10 +4,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Leaderboard.Infrastructure.Persistence.Repositories;
 
-/// <summary>Reads the backend-owned hero projection. Development seeds this table once.</summary>
+/// <summary>Reads the active consolidated generation, or Development seed before the first rebuild.</summary>
 public sealed class HeroRankingQueries(LeaderboardDbContext dbContext) : IHeroRankingQueries
 {
     private static readonly RankingStatusDetail LiveDetail = new();
+
+    private sealed record RankingData(
+        List<HeroRanking> Heroes,
+        DateTimeOffset? ConsolidatedAt,
+        bool IsEventProjection
+    );
 
     public async Task<HeroRankingPage> GetPageAsync(
         string playerId,
@@ -20,8 +26,8 @@ public sealed class HeroRankingQueries(LeaderboardDbContext dbContext) : IHeroRa
         CancellationToken cancellationToken
     )
     {
-        List<HeroRanking> heroes = await ReadAllAsync(cancellationToken);
-        List<HeroRankingEntry> matching = Rank(heroes, period)
+        RankingData data = await ReadRankingAsync(cancellationToken);
+        List<HeroRankingEntry> matching = Rank(data.Heroes, period)
             .Where(entry => heroClass is null || entry.HeroClass == heroClass)
             .Where(entry =>
                 string.IsNullOrWhiteSpace(search)
@@ -52,10 +58,10 @@ public sealed class HeroRankingQueries(LeaderboardDbContext dbContext) : IHeroRa
 
         long offset = ((long)page - 1) * pageSize;
         return new HeroRankingPage(
-            ConsolidatedAt(heroes),
+            data.ConsolidatedAt,
             "live",
             LiveDetail,
-            Season(heroes),
+            Season(data),
             page,
             pageSize,
             matching.Count,
@@ -64,13 +70,18 @@ public sealed class HeroRankingQueries(LeaderboardDbContext dbContext) : IHeroRa
         );
     }
 
-    public async Task<PublicHeroRanking> GetPublicAsync(CancellationToken cancellationToken)
+    public async Task<PublicHeroRanking> GetPublicAsync(
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken
+    )
     {
-        List<HeroRanking> heroes = await ReadAllAsync(cancellationToken);
-        List<HeroRankingEntry> entries = Rank(heroes, "all-time");
+        RankingData data = await ReadRankingAsync(cancellationToken);
+        List<HeroRankingEntry> entries = Rank(data.Heroes, "all-time");
+        long offset = ((long)page - 1) * pageSize;
         return new PublicHeroRanking(
-            ConsolidatedAt(heroes),
-            Season(heroes),
+            data.ConsolidatedAt,
+            Season(data),
             entries.Count,
             entries.Take(3).ToList(),
             [
@@ -78,7 +89,10 @@ public sealed class HeroRankingQueries(LeaderboardDbContext dbContext) : IHeroRa
                 new("shaman", entries.FirstOrDefault(entry => entry.HeroClass == "shaman")),
                 new("mage", entries.FirstOrDefault(entry => entry.HeroClass == "mage")),
             ],
-            entries.Take(10).ToList()
+            entries.Take(10).ToList(),
+            page,
+            pageSize,
+            entries.Skip((int)Math.Min(offset, int.MaxValue)).Take(pageSize).ToList()
         );
     }
 
@@ -148,6 +162,9 @@ public sealed class HeroRankingQueries(LeaderboardDbContext dbContext) : IHeroRa
         if (hero is null)
             return null;
 
+        if (await ActiveGenerationIdAsync(cancellationToken) is not null)
+            return new HeroRankingFacts(heroId, hero.AllTimeXp, $"consolidated:{heroId}", []);
+
         DateTimeOffset latest = hero.LastActivityAt ?? hero.CreatedAt;
         List<HeroFact> facts = Enumerable
             .Range(0, 6)
@@ -183,6 +200,9 @@ public sealed class HeroRankingQueries(LeaderboardDbContext dbContext) : IHeroRa
             return new HeroStatistics(heroId, null, false, false, []);
         }
 
+        if (await ActiveGenerationIdAsync(cancellationToken) is not null)
+            return new HeroStatistics(heroId, hero.SeededAt, false, false, []);
+
         List<HeroStatisticValue> values = await dbContext
             .HeroStatisticValues.AsNoTracking()
             .Where(value => value.HeroId == heroId)
@@ -197,24 +217,88 @@ public sealed class HeroRankingQueries(LeaderboardDbContext dbContext) : IHeroRa
         );
     }
 
-    private Task<HeroRanking?> FindAsync(string heroId, CancellationToken cancellationToken) =>
-        dbContext
+    private async Task<HeroRanking?> FindAsync(string heroId, CancellationToken cancellationToken)
+    {
+        WarehouseState? state = await dbContext
+            .WarehouseState.AsNoTracking()
+            .SingleOrDefaultAsync(item => item.Id == WarehouseState.SingletonId, cancellationToken);
+        if (state?.ActiveGenerationId is { } generationId)
+        {
+            HeroRankingSnapshot? snapshot = await dbContext
+                .HeroRankingSnapshots.AsNoTracking()
+                .SingleOrDefaultAsync(
+                    hero => hero.GenerationId == generationId && hero.HeroId == heroId,
+                    cancellationToken
+                );
+            return snapshot is null ? null : FromSnapshot(snapshot, state.ActivatedAt);
+        }
+        return await dbContext
             .HeroRankings.AsNoTracking()
             .SingleOrDefaultAsync(hero => hero.HeroId == heroId, cancellationToken);
+    }
 
-    private Task<List<HeroRanking>> ReadAllAsync(CancellationToken cancellationToken) =>
-        dbContext.HeroRankings.AsNoTracking().ToListAsync(cancellationToken);
+    private async Task<Guid?> ActiveGenerationIdAsync(CancellationToken cancellationToken) =>
+        (
+            await dbContext
+                .WarehouseState.AsNoTracking()
+                .SingleOrDefaultAsync(
+                    item => item.Id == WarehouseState.SingletonId,
+                    cancellationToken
+                )
+        )?.ActiveGenerationId;
+
+    private async Task<RankingData> ReadRankingAsync(CancellationToken cancellationToken)
+    {
+        WarehouseState? state = await dbContext
+            .WarehouseState.AsNoTracking()
+            .SingleOrDefaultAsync(item => item.Id == WarehouseState.SingletonId, cancellationToken);
+        if (state?.ActiveGenerationId is { } generationId)
+        {
+            List<HeroRankingSnapshot> snapshots = await dbContext
+                .HeroRankingSnapshots.AsNoTracking()
+                .Where(hero => hero.GenerationId == generationId && hero.TotalXp > 0)
+                .ToListAsync(cancellationToken);
+            return new RankingData(
+                snapshots.Select(hero => FromSnapshot(hero, state.ActivatedAt)).ToList(),
+                state.ActivatedAt,
+                true
+            );
+        }
+        List<HeroRanking> seeded = await dbContext
+            .HeroRankings.AsNoTracking()
+            .ToListAsync(cancellationToken);
+        return new RankingData(seeded, ConsolidatedAt(seeded), false);
+    }
+
+    private static HeroRanking FromSnapshot(
+        HeroRankingSnapshot snapshot,
+        DateTimeOffset? activatedAt
+    ) =>
+        new()
+        {
+            HeroId = snapshot.HeroId,
+            HeroName = snapshot.HeroId,
+            HeroClass = "unknown",
+            PlayerId = snapshot.PlayerId,
+            AllTimeXp = snapshot.TotalXp,
+            Level = snapshot.Level,
+            CreatedAt = snapshot.FirstSeenAt,
+            LastActivityAt = snapshot.LastActivityAt,
+            SeededAt = activatedAt ?? DateTimeOffset.UnixEpoch,
+        };
 
     private static DateTimeOffset? ConsolidatedAt(List<HeroRanking> heroes) =>
         heroes.Count == 0 ? null : heroes.Max(hero => hero.SeededAt);
 
-    private static RankingSeason Season(List<HeroRanking> heroes) =>
-        new(
-            "season-3",
-            "Season 3",
-            (ConsolidatedAt(heroes) ?? DateTimeOffset.UtcNow).AddDays(-30),
-            "season-2"
-        );
+    private static RankingSeason Season(RankingData data) =>
+        data.IsEventProjection
+            ? new("all-time", "All time", DateTimeOffset.UnixEpoch, null)
+            : new(
+                "season-3",
+                "Season 3",
+                (data.ConsolidatedAt ?? DateTimeOffset.UtcNow).AddDays(-30),
+                "season-2"
+            );
 
     private static List<HeroRankingEntry> Rank(List<HeroRanking> heroes, string period) =>
         heroes

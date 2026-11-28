@@ -12,6 +12,7 @@ public class LeaderboardDbContext(DbContextOptions<LeaderboardDbContext> options
     public virtual DbSet<PlayerStatistics> PlayerStatistics { get; set; }
     public virtual DbSet<PlayerActionStatistics> PlayerActionStatistics { get; set; }
     public virtual DbSet<HeroRanking> HeroRankings { get; set; }
+    public virtual DbSet<HeroRankingSnapshot> HeroRankingSnapshots { get; set; }
     public virtual DbSet<HeroStatisticValue> HeroStatisticValues { get; set; }
     public virtual DbSet<WarehouseProcessedMessage> WarehouseProcessedMessages { get; set; }
 

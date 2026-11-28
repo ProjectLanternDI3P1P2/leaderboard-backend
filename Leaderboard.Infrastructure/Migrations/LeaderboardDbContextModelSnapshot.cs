@@ -89,6 +89,52 @@ namespace Leaderboard.Infrastructure.Migrations
                     b.ToTable("hero_rankings", (string)null);
                 });
 
+            modelBuilder.Entity("Leaderboard.Domain.Entities.HeroRankingSnapshot", b =>
+                {
+                    b.Property<Guid>("GenerationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("generation_id");
+
+                    b.Property<string>("HeroId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("hero_id");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_seen_at");
+
+                    b.Property<string>("HeroClassId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("hero_class_id");
+
+                    b.Property<DateTimeOffset>("LastActivityAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_activity_at");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("integer")
+                        .HasColumnName("level");
+
+                    b.Property<string>("PlayerId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("player_id");
+
+                    b.Property<long>("TotalXp")
+                        .HasColumnType("bigint")
+                        .HasColumnName("total_xp");
+
+                    b.HasKey("GenerationId", "HeroId");
+
+                    b.HasIndex("GenerationId", "TotalXp", "HeroId")
+                        .IsDescending(false, true, false);
+
+                    b.ToTable("warehouse_hero_rankings", (string)null);
+                });
+
             modelBuilder.Entity("Leaderboard.Domain.Entities.HeroStatisticValue", b =>
                 {
                     b.Property<string>("HeroId")

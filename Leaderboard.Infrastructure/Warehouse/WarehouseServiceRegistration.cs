@@ -25,6 +25,7 @@ public static class WarehouseServiceRegistration
         services
             .AddSingleton(Options.Create(options))
             .AddSingleton<IPlayerActionDecoder, GameEventPlayerActionDecoder>()
+            .AddSingleton<IHeroRankingEventDecoder, GameEventHeroRankingDecoder>()
             .AddScoped<IWarehouseStore, PostgresWarehouseStore>();
 
         if (options.IsWorkerEnabled)
